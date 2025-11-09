@@ -14,20 +14,24 @@ import { useCreateItem } from '@/hooks/useAPI';
 
 interface ItemFormData {
   name: string;
+  gram: number;
   category: string;
   price: number;
 }
 
 const initialFormData: ItemFormData = {
   name: '',
+  gram: 0,
   category: '',
   price: 0,
 };
 
+type ItemFormErrors = Partial<Record<keyof ItemFormData, string>>;
+
 export function AddItemDialog() {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<ItemFormData>(initialFormData);
-  const [errors, setErrors] = useState<Partial<ItemFormData>>({});
+  const [errors, setErrors] = useState<ItemFormErrors>({});
   const [isPriceEditing, setIsPriceEditing] = useState(false);
   
   const createItem = useCreateItem();
@@ -41,10 +45,14 @@ export function AddItemDialog() {
   };
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<ItemFormData> = {};
+    const newErrors: ItemFormErrors = {};
 
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
+    }
+
+    if (formData.gram < 0) {
+      newErrors.gram = 'Gram required cannot be negative';
     }
 
     if (!formData.category.trim()) {
@@ -74,6 +82,7 @@ export function AddItemDialog() {
 
       const payload = {
         name: formData.name,
+        gram: formData.gram || 0,
         sku: generatedSku,
         description: '',
         category: formData.category.toUpperCase(),
@@ -122,6 +131,21 @@ export function AddItemDialog() {
               className={errors.name ? 'border-red-500' : ''}
             />
             {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gram">Gram Required</Label>
+            <Input
+              id="gram"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.gram || ''}
+              onChange={(e) => handleInputChange('gram', parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              className={errors.gram ? 'border-red-500' : ''}
+            />
+            {errors.gram && <p className="text-sm text-red-500">{errors.gram}</p>}
           </div>
 
           <div className="space-y-2">

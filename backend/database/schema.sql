@@ -7,7 +7,7 @@ USE stock_craft_billing;
 CREATE TABLE IF NOT EXISTS customers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NULL,
+    email VARCHAR(255),
     phone VARCHAR(20),
     mobile_number VARCHAR(15),
     address TEXT,
@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS raw_materials (
 CREATE TABLE IF NOT EXISTS items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    gram DECIMAL(10, 2) NOT NULL,
     sku VARCHAR(100) UNIQUE NOT NULL,
     description TEXT,
     category VARCHAR(100),
@@ -127,6 +128,8 @@ CREATE TABLE IF NOT EXISTS payments (
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 );
 
+-- Migration: Add gram_required column to existing items table (run this if table already exists)
+-- ALTER TABLE items ADD COLUMN IF NOT EXISTS gram_required DECIMAL(10, 2) DEFAULT 0 AFTER name;
 
 -- Update existing customers table to add new fields (run this if table already exists)
 ALTER TABLE customers 
@@ -185,3 +188,4 @@ DROP INDEX email ON customers;
 -- ('PAY-001', 1, 1, '2024-01-15', 2695.00, 'Bank Transfer', 'Completed', 'TXN123456'),
 -- ('PAY-002', 2, 2, '2024-01-14', 2079.00, 'Cash', 'Pending', 'CASH001'),
 -- ('PAY-003', 3, 3, '2024-01-13', 3520.00, 'Credit Card', 'Completed', 'CC789012');
+

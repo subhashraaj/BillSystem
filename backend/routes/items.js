@@ -39,6 +39,7 @@ router.post('/', [
   body('name').notEmpty().withMessage('Name is required'),
   body('sku').notEmpty().withMessage('SKU is required'),
   body('category').notEmpty().withMessage('Category is required'),
+  body('gram').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Gram required must be a valid decimal'),
   body('current_stock').isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
   body('price').isDecimal({ decimal_digits: '0,2' }).withMessage('Price must be a valid decimal'),
   body('cost').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Cost must be a valid decimal')
@@ -49,17 +50,17 @@ router.post('/', [
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { name, sku, description, category, current_stock = 0, price, cost, status = 'In Stock' } = req.body;
+    const { name, gram = 0, sku, description, category, current_stock = 0, price, cost, status = 'In Stock' } = req.body;
     
     const [result] = await req.db.execute(
-      'INSERT INTO items (name, sku, description, category, current_stock, price, cost, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, sku, description, category, current_stock, price, cost, status]
+      'INSERT INTO items (name, gram, sku, description, category, current_stock, price, cost, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, gram, sku, description, category, current_stock, price, cost, status]
     );
     
     res.status(201).json({ 
       success: true, 
       message: 'Item created successfully',
-      data: { id: result.insertId, name, sku, description, category, current_stock, price, cost, status }
+      data: { id: result.insertId, name, gram, sku, description, category, current_stock, price, cost, status }
     });
   } catch (error) {
     console.error('Error creating item:', error);
@@ -76,6 +77,7 @@ router.put('/:id', [
   body('name').optional().notEmpty().withMessage('Name cannot be empty'),
   body('sku').optional().notEmpty().withMessage('SKU cannot be empty'),
   body('category').optional().notEmpty().withMessage('Category cannot be empty'),
+  body('gram').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Gram required must be a valid decimal'),
   body('current_stock').optional().isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
   body('price').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Price must be a valid decimal'),
   body('cost').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Cost must be a valid decimal')
@@ -86,13 +88,14 @@ router.put('/:id', [
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { name, sku, description, category, current_stock, price, cost, status } = req.body;
+    const { name, gram, sku, description, category, current_stock, price, cost, status } = req.body;
     
     // Build dynamic query
     const updates = [];
     const values = [];
     
     if (name !== undefined) { updates.push('name = ?'); values.push(name); }
+    if (gram !== undefined) { updates.push('gram = ?'); values.push(gram); }
     if (sku !== undefined) { updates.push('sku = ?'); values.push(sku); }
     if (description !== undefined) { updates.push('description = ?'); values.push(description); }
     if (category !== undefined) { updates.push('category = ?'); values.push(category); }

@@ -115,31 +115,17 @@ export function AddCustomerDialog() {
           <DialogTitle>Add New Customer</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Row 1: Name and Email */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Enter customer name"
-                className={errors.name ? 'border-red-500' : ''}
-              />
-              {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
-            </div>
-            {/* <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="Enter email address"
-                className={errors.email ? 'border-red-500' : ''}
-              />
-              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
-            </div> */}
+          {/* Row 1: Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Name *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="Enter customer name"
+              className={errors.name ? 'border-red-500' : ''}
+            />
+            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
           </div>
 
           {/* Row 2: Mobile */}

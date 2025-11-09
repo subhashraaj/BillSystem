@@ -39,117 +39,173 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new manufacturing record
+// Create new manufacturing record(s) - supports single or multiple items
 router.post('/', [
-  body('item_id').isInt({ min: 1 }).withMessage('Valid item ID is required'),
-  body('quantity_manufactured').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
-  // Treat empty string as missing
+  // Support both old format (single item) and new format (array of items)
+  body('item_id').optional().isInt({ min: 1 }).withMessage('Valid item ID is required'),
+  body('quantity_manufactured').optional().isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
+  body('items').optional().isArray({ min: 1 }).withMessage('Items must be a non-empty array'),
+  body('items.*.item_id').if(body('items').exists()).isInt({ min: 1 }).withMessage('Each item must have a valid item ID'),
+  body('items.*.quantity_manufactured').if(body('items').exists()).isInt({ min: 1 }).withMessage('Each item must have a valid quantity'),
   body('batch_number').optional({ checkFalsy: true }).isString().withMessage('Batch number must be text'),
-  body('staff_name').notEmpty().withMessage('Staff name is required'),
+  body('staff_name').notEmpty().trim().withMessage('Staff name is required'),
   body('manufacturing_date').isISO8601().withMessage('Valid manufacturing date is required'),
-  // Accept HH:MM or HH:MM:SS
   body('manufacturing_time').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$/).withMessage('Valid time format is required (HH:MM or HH:MM:SS)')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      const errorMessages = errors.array().map(err => err.msg).join(', ');
+      return res.status(400).json({ success: false, error: errorMessages, errors: errors.array() });
     }
 
-    const { item_id, quantity_manufactured, batch_number, staff_name, manufacturing_date, manufacturing_time, notes } = req.body;
+    const { items, item_id, quantity_manufactured, batch_number, staff_name, manufacturing_date, manufacturing_time, notes } = req.body;
+    
     // Normalize time to HH:MM:SS for MySQL TIME
     const normalizedTime = manufacturing_time.length === 5 ? `${manufacturing_time}:00` : manufacturing_time;
     
-    // Verify item exists
+    // Support both old format (single item) and new format (array of items)
+    let itemsToProcess = [];
+    if (items && Array.isArray(items) && items.length > 0) {
+      // New format: array of items - validate each item has required fields
+      for (const item of items) {
+        if (!item.item_id || !item.quantity_manufactured) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Each item in the array must have item_id and quantity_manufactured' 
+          });
+        }
+        itemsToProcess.push({
+          item_id: parseInt(item.item_id),
+          quantity_manufactured: parseInt(item.quantity_manufactured)
+        });
+      }
+    } else if (item_id && quantity_manufactured) {
+      // Old format: single item (backward compatibility)
+      itemsToProcess = [{ 
+        item_id: parseInt(item_id), 
+        quantity_manufactured: parseInt(quantity_manufactured) 
+      }];
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Either items array or item_id with quantity_manufactured is required' 
+      });
+    }
+
+    // Verify all items exist
+    const itemIds = itemsToProcess.map(item => item.item_id);
     const [itemRows] = await req.db.execute(
-      'SELECT id, name FROM items WHERE id = ?',
-      [item_id]
+      `SELECT id, name FROM items WHERE id IN (${itemIds.map(() => '?').join(',')})`,
+      itemIds
     );
     
-    if (itemRows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Item not found' });
+    if (itemRows.length !== itemIds.length) {
+      const foundIds = itemRows.map(row => row.id);
+      const missingIds = itemIds.filter(id => !foundIds.includes(id));
+      return res.status(400).json({ success: false, error: `Items not found: ${missingIds.join(', ')}` });
     }
-    // Check BOM requirements and raw material stock inside a transaction
-    const result = await req.db.withTransaction(async (tx) => {
-      // Fetch BOM for the item
-      const [bomRows] = await tx.execute(
-        `SELECT ib.raw_material_id, ib.quantity_per_unit, ib.unit, rm.current_stock, rm.name as raw_material_name
-         FROM item_bom ib
-         JOIN raw_materials rm ON rm.id = ib.raw_material_id
-         WHERE ib.item_id = ?`,
-        [item_id]
-      );
 
-      if (bomRows.length > 0) {
-        // Calculate total required quantities
-        const shortages = [];
-        for (const row of bomRows) {
-          const requiredQty = Number(row.quantity_per_unit) * Number(quantity_manufactured);
-          if (Number(row.current_stock) < requiredQty) {
-            shortages.push({
-              raw_material_id: row.raw_material_id,
-              raw_material_name: row.raw_material_name,
-              required: requiredQty,
-              available: Number(row.current_stock),
-              unit: row.unit,
-            });
+    const itemMap = {};
+    itemRows.forEach(row => {
+      itemMap[row.id] = row.name;
+    });
+
+    // Process all items in a single transaction
+    const results = await req.db.withTransaction(async (tx) => {
+      const createdRecords = [];
+      const allShortages = [];
+
+      // Process each item
+      for (const itemData of itemsToProcess) {
+        const { item_id: currentItemId, quantity_manufactured: currentQuantity } = itemData;
+
+        // Fetch BOM for the item
+        const [bomRows] = await tx.execute(
+          `SELECT ib.raw_material_id, ib.quantity_per_unit, ib.unit, rm.current_stock, rm.name as raw_material_name
+           FROM item_bom ib
+           JOIN raw_materials rm ON rm.id = ib.raw_material_id
+           WHERE ib.item_id = ?`,
+          [currentItemId]
+        );
+
+        if (bomRows.length > 0) {
+          // Calculate total required quantities
+          const shortages = [];
+          for (const row of bomRows) {
+            const requiredQty = Number(row.quantity_per_unit) * Number(currentQuantity);
+            if (Number(row.current_stock) < requiredQty) {
+              shortages.push({
+                item_name: itemMap[currentItemId],
+                raw_material_id: row.raw_material_id,
+                raw_material_name: row.raw_material_name,
+                required: requiredQty,
+                available: Number(row.current_stock),
+                unit: row.unit,
+              });
+            }
+          }
+
+          if (shortages.length > 0) {
+            allShortages.push(...shortages);
+            continue; // Skip this item if there are shortages
+          }
+
+          // Deduct raw materials
+          for (const row of bomRows) {
+            const requiredQty = Number(row.quantity_per_unit) * Number(currentQuantity);
+            await tx.execute(
+              'UPDATE raw_materials SET current_stock = current_stock - ? WHERE id = ? AND current_stock >= ?',
+              [requiredQty, row.raw_material_id, requiredQty]
+            );
           }
         }
 
-        if (shortages.length > 0) {
-          const message = `Insufficient raw materials: ` + shortages
-            .map(s => `${s.raw_material_name} (need ${s.required} ${s.unit}, have ${s.available} ${s.unit})`)
-            .join(', ');
-          const error = new Error(message);
-          // Attach status for outer catcher
-          // @ts-ignore
-          error.statusCode = 400;
-          throw error;
-        }
+        // Create manufacturing record
+        const [insertRes] = await tx.execute(
+          'INSERT INTO manufacturing (item_id, quantity_manufactured, batch_number, staff_name, manufacturing_date, manufacturing_time, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [currentItemId, currentQuantity, batch_number, staff_name, manufacturing_date, normalizedTime, notes]
+        );
 
-        // Deduct raw materials
-        for (const row of bomRows) {
-          const requiredQty = Number(row.quantity_per_unit) * Number(quantity_manufactured);
-          await tx.execute(
-            'UPDATE raw_materials SET current_stock = current_stock - ? WHERE id = ? AND current_stock >= ?',
-            [requiredQty, row.raw_material_id, requiredQty]
-          );
-        }
+        // Update finished good stock
+        await tx.execute(
+          'UPDATE items SET current_stock = current_stock + ? WHERE id = ?',
+          [currentQuantity, currentItemId]
+        );
+
+        createdRecords.push({
+          id: insertRes.insertId,
+          item_id: currentItemId,
+          item_name: itemMap[currentItemId],
+          quantity_manufactured: currentQuantity,
+        });
       }
 
-      // Create manufacturing record
-      const [insertRes] = await tx.execute(
-        'INSERT INTO manufacturing (item_id, quantity_manufactured, batch_number, staff_name, manufacturing_date, manufacturing_time, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [item_id, quantity_manufactured, batch_number, staff_name, manufacturing_date, normalizedTime, notes]
-      );
+      // If there were shortages, throw error
+      if (allShortages.length > 0) {
+        const message = `Insufficient raw materials: ` + allShortages
+          .map(s => `${s.item_name} - ${s.raw_material_name} (need ${s.required} ${s.unit}, have ${s.available} ${s.unit})`)
+          .join(', ');
+        const error = new Error(message);
+        error.statusCode = 400;
+        throw error;
+      }
 
-      // Update finished good stock
-      await tx.execute(
-        'UPDATE items SET current_stock = current_stock + ? WHERE id = ?',
-        [quantity_manufactured, item_id]
-      );
-
-      return insertRes;
+      return createdRecords;
     });
 
     res.status(201).json({
       success: true,
-      message: 'Manufacturing record created successfully',
-      data: {
-        id: result.insertId,
-        item_id,
-        item_name: itemRows[0].name,
-        quantity_manufactured,
-        batch_number,
-        staff_name,
-        manufacturing_date,
-        manufacturing_time,
-        notes
-      }
+      message: `Successfully created ${results.length} manufacturing record(s)`,
+      data: results,
+      batch_number,
+      staff_name,
+      manufacturing_date,
+      manufacturing_time,
+      notes
     });
   } catch (error) {
     console.error('Error creating manufacturing record:', error);
-    // @ts-ignore
     const status = error.statusCode === 400 ? 400 : 500;
     res.status(status).json({ success: false, error: error.message || 'Failed to create manufacturing record' });
   }

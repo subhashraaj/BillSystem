@@ -90,6 +90,7 @@ export default function Items() {
             <TableHeader>
               <TableRow>
                 <TableHead>Item Name</TableHead>
+                <TableHead>Gram Required</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Price</TableHead>
@@ -99,7 +100,7 @@ export default function Items() {
             <TableBody>
               {filteredItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     {searchTerm ? 'No items found matching your search.' : 'No items found.'}
                   </TableCell>
                 </TableRow>
@@ -108,6 +109,7 @@ export default function Items() {
                   return (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.gram ? `${item.gram}g` : '-'}</TableCell>
                       <TableCell>{item.category || '-'}</TableCell>
                       <TableCell className="font-semibold">{item.current_stock}</TableCell>
                       <TableCell>${item.price}</TableCell>

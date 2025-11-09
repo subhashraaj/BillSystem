@@ -4,12 +4,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import {
   Dialog,
   DialogContent,
@@ -17,12 +23,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Package } from 'lucide-react';
+import { Package, X, Plus, Check, ChevronsUpDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useCreateManufacturingRecord, useItems } from '@/hooks/useAPI';
 
-interface ManufacturingFormData {
+interface SelectedItem {
   item_id: number;
-  quantity_manufactured: number;
+  item_name: string;
+  quantity: number;
+}
+
+interface ManufacturingFormData {
+  items: SelectedItem[];
   batch_number: string;
   staff_name: string;
   manufacturing_date: string;
@@ -31,8 +43,7 @@ interface ManufacturingFormData {
 }
 
 const initialFormData: ManufacturingFormData = {
-  item_id: 0,
-  quantity_manufactured: 1,
+  items: [],
   batch_number: '',
   staff_name: '',
   manufacturing_date: new Date().toISOString().split('T')[0],
@@ -43,30 +54,90 @@ const initialFormData: ManufacturingFormData = {
 export function ReportManufacturingDialog() {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState<ManufacturingFormData>(initialFormData);
-  const [errors, setErrors] = useState<Partial<ManufacturingFormData>>({});
+  const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   
   const createManufacturingRecord = useCreateManufacturingRecord();
   const { data: itemsData } = useItems();
   const items = itemsData?.data || [];
 
-  const handleInputChange = (field: keyof ManufacturingFormData, value: string | number) => {
+  const handleInputChange = (field: keyof ManufacturingFormData, value: string | number | SelectedItem[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+    if (errors[field as string]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field as string];
+        return newErrors;
+      });
     }
   };
 
+  const handleAddItem = () => {
+    if (!selectedItemId) {
+      setErrors(prev => ({ ...prev, items: 'Please select an item' }));
+      return;
+    }
+
+    const itemId = parseInt(selectedItemId);
+    const item = items.find((i: any) => i.id === itemId);
+    
+    if (!item) return;
+
+    // Check if item already added
+    if (formData.items.some(i => i.item_id === itemId)) {
+      setErrors(prev => ({ ...prev, items: 'Item already added' }));
+      return;
+    }
+
+    const newItem: SelectedItem = {
+      item_id: itemId,
+      item_name: item.name,
+      quantity: 1,
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, newItem],
+    }));
+
+    setSelectedItemId('');
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.items;
+      return newErrors;
+    });
+  };
+
+  const handleRemoveItem = (itemId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter(i => i.item_id !== itemId),
+    }));
+  };
+
+  const handleItemQuantityChange = (itemId: number, quantity: number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map(item =>
+        item.item_id === itemId ? { ...item, quantity: Math.max(1, quantity) } : item
+      ),
+    }));
+  };
+
   const validateForm = (): boolean => {
-    const newErrors: Partial<ManufacturingFormData> = {};
+    const newErrors: Partial<Record<string, string>> = {};
 
-    if (!formData.item_id) {
-      newErrors.item_id = 'Item is required';
+    if (formData.items.length === 0) {
+      newErrors.items = 'At least one item is required';
     }
 
-    if (!formData.quantity_manufactured || formData.quantity_manufactured <= 0) {
-      newErrors.quantity_manufactured = 'Quantity must be greater than 0';
-    }
+    formData.items.forEach((item, index) => {
+      if (!item.quantity || item.quantity <= 0) {
+        newErrors[`item_${index}_quantity`] = 'Quantity must be greater than 0';
+      }
+    });
 
     if (!formData.staff_name.trim()) {
       newErrors.staff_name = 'Staff name is required';
@@ -92,16 +163,28 @@ export function ReportManufacturingDialog() {
     }
 
     try {
-      await createManufacturingRecord.mutateAsync(formData);
+      // Prepare data for backend - array of items with quantities
+      const submitData = {
+        items: formData.items.map(item => ({
+          item_id: item.item_id,
+          quantity_manufactured: item.quantity,
+        })),
+        batch_number: formData.batch_number,
+        staff_name: formData.staff_name,
+        manufacturing_date: formData.manufacturing_date,
+        manufacturing_time: formData.manufacturing_time,
+        notes: formData.notes,
+      };
+
+      await createManufacturingRecord.mutateAsync(submitData);
       setFormData(initialFormData);
+      setSelectedItemId('');
       setOpen(false);
     } catch (error) {
       console.error('Error creating manufacturing record:', error);
-      // Surface error to user
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       const message = (error?.message as string) || 'Failed to create manufacturing record';
-      // Lazy import to avoid coupling hooks here
       import('sonner').then(({ toast }) => toast.error(message));
     }
   };
@@ -110,9 +193,15 @@ export function ReportManufacturingDialog() {
     setOpen(newOpen);
     if (!newOpen) {
       setFormData(initialFormData);
+      setSelectedItemId('');
       setErrors({});
     }
   };
+
+  // Get available items (not already selected)
+  const availableItems = items.filter((item: any) => 
+    !formData.items.some(selected => selected.item_id === item.id)
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -122,44 +211,111 @@ export function ReportManufacturingDialog() {
           Report Manufacturing
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Report Manufactured Items</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Multi-select Items Section */}
           <div className="space-y-2">
-            <Label htmlFor="item_id">Item Name *</Label>
-            <Select
-              value={formData.item_id.toString()}
-              onValueChange={(value) => handleInputChange('item_id', parseInt(value))}
-            >
-              <SelectTrigger className={errors.item_id ? 'border-red-500' : ''}>
-                <SelectValue placeholder="Select item" />
-              </SelectTrigger>
-              <SelectContent>
-                {items.map((item: any) => (
-                  <SelectItem key={item.id} value={item.id.toString()}>
-                    {item.name} ({item.sku})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.item_id && <p className="text-sm text-red-500">{errors.item_id}</p>}
+            <Label>Items Manufactured *</Label>
+            <div className="flex gap-2">
+              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboboxOpen}
+                    className="flex-1 justify-between"
+                    type="button"
+                  >
+                    {selectedItemId
+                      ? availableItems.find((item: any) => item.id.toString() === selectedItemId)?.name || 'Select item...'
+                      : 'Select item to add...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <Command>
+                    <CommandInput placeholder="Search items by name or SKU..." />
+                    <CommandList>
+                      <CommandEmpty>No items found.</CommandEmpty>
+                      <CommandGroup>
+                        {availableItems.length === 0 ? (
+                          <CommandItem disabled>No more items available</CommandItem>
+                        ) : (
+                          availableItems.map((item: any) => (
+                            <CommandItem
+                              key={item.id}
+                              value={`${item.name} ${item.sku}`}
+                              onSelect={() => {
+                                setSelectedItemId(item.id.toString());
+                                setComboboxOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedItemId === item.id.toString() ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {item.name} ({item.sku})
+                            </CommandItem>
+                          ))
+                        )}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddItem}
+                disabled={!selectedItemId}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </div>
+            {errors.items && <p className="text-sm text-red-500">{errors.items}</p>}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="quantity_manufactured">Quantity Manufactured *</Label>
-            <Input
-              id="quantity_manufactured"
-              type="number"
-              min="1"
-              value={formData.quantity_manufactured}
-              onChange={(e) => handleInputChange('quantity_manufactured', parseInt(e.target.value) || 0)}
-              placeholder="Enter quantity"
-              className={errors.quantity_manufactured ? 'border-red-500' : ''}
-            />
-            {errors.quantity_manufactured && <p className="text-sm text-red-500">{errors.quantity_manufactured}</p>}
-          </div>
+          {/* Selected Items List */}
+          {formData.items.length > 0 && (
+            <div className="space-y-2 border rounded-md p-3">
+              <Label className="text-sm font-medium">Selected Items:</Label>
+              <div className="space-y-2">
+                {formData.items.map((item, index) => (
+                  <div key={item.item_id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{item.item_name}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`quantity-${item.item_id}`} className="text-xs">Qty:</Label>
+                      <Input
+                        id={`quantity-${item.item_id}`}
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleItemQuantityChange(item.item_id, parseInt(e.target.value) || 1)}
+                        className="w-20 h-8"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveItem(item.item_id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="batch_number">Batch Number</Label>
