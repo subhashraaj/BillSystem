@@ -1,18 +1,49 @@
-const express = require('express');
-const { body, validationResult } = require('express-validator');
+import express from 'express';
+import { body, validationResult } from 'express-validator';
+import Payment from '../models/Payment.js';
+import Invoice from '../models/Invoice.js';
+import Customer from '../models/Customer.js';
+import getNextSequence from '../utils/getNextSequence.js';
+
 const router = express.Router();
 
+const formatDate = (value) =>
+  value ? new Date(value).toISOString().split('T')[0] : null;
+
+const formatPayment = (payment) => {
+  const invoice = payment.invoice || {};
+  const customer = payment.customer || {};
+
+  return {
+    id: payment.legacy_id,
+    payment_number: payment.payment_number,
+    invoice_id: invoice.legacy_id,
+    invoice_number: invoice.invoice_number,
+    invoice_total: invoice.total_amount,
+    customer_id: customer.legacy_id,
+    customer_name: customer.name,
+    customer_email: customer.email,
+    payment_date: formatDate(payment.payment_date),
+    amount: payment.amount,
+    payment_method: payment.payment_method,
+    status: payment.status,
+    reference_number: payment.reference_number,
+    notes: payment.notes,
+    created_at: payment.created_at,
+    updated_at: payment.updated_at,
+  };
+};
+
 // Get all payments
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
-    const [rows] = await req.db.execute(`
-      SELECT p.*, i.invoice_number, c.name as customer_name, c.email as customer_email
-      FROM payments p 
-      JOIN invoices i ON p.invoice_id = i.id 
-      JOIN customers c ON p.customer_id = c.id 
-      ORDER BY p.payment_date DESC
-    `);
-    res.json({ success: true, data: rows });
+    const payments = await Payment.find()
+      .populate('invoice', 'legacy_id invoice_number total_amount')
+      .populate('customer', 'legacy_id name email')
+      .sort({ payment_date: -1 })
+      .lean();
+
+    res.json({ success: true, data: payments.map(formatPayment) });
   } catch (error) {
     console.error('Error fetching payments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
@@ -22,19 +53,21 @@ router.get('/', async (req, res) => {
 // Get payment by ID
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await req.db.execute(`
-      SELECT p.*, i.invoice_number, i.total_amount as invoice_total, c.name as customer_name, c.email as customer_email
-      FROM payments p 
-      JOIN invoices i ON p.invoice_id = i.id 
-      JOIN customers c ON p.customer_id = c.id 
-      WHERE p.id = ?
-    `, [req.params.id]);
-    
-    if (rows.length === 0) {
+    const numericId = Number(req.params.id);
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+    }
+
+    const payment = await Payment.findOne({ legacy_id: numericId })
+      .populate('invoice', 'legacy_id invoice_number total_amount')
+      .populate('customer', 'legacy_id name email')
+      .lean();
+
+    if (!payment) {
       return res.status(404).json({ success: false, error: 'Payment not found' });
     }
-    
-    res.json({ success: true, data: rows[0] });
+
+    res.json({ success: true, data: formatPayment(payment) });
   } catch (error) {
     console.error('Error fetching payment:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payment' });
@@ -42,214 +75,241 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new payment
-router.post('/', [
-  body('invoice_id').isInt({ min: 1 }).withMessage('Valid invoice ID is required'),
-  body('customer_id').isInt({ min: 1 }).withMessage('Valid customer ID is required'),
-  body('payment_date').isISO8601().withMessage('Valid payment date is required'),
-  body('amount').isDecimal({ decimal_digits: '0,2' }).withMessage('Amount must be a valid decimal'),
-  body('payment_method').isIn(['Cash', 'Bank Transfer', 'Credit Card', 'Check', 'Other']).withMessage('Valid payment method is required'),
-  body('status').optional().isIn(['Pending', 'Completed', 'Failed', 'Refunded']).withMessage('Invalid status')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
-    }
+router.post(
+  '/',
+  [
+    body('invoice_id').isInt({ min: 1 }).withMessage('Valid invoice ID is required'),
+    body('customer_id').isInt({ min: 1 }).withMessage('Valid customer ID is required'),
+    body('payment_date').isISO8601().withMessage('Valid payment date is required'),
+    body('amount').isDecimal({ decimal_digits: '0,2' }).withMessage('Amount must be a valid decimal'),
+    body('payment_method')
+      .isIn(['Cash', 'Bank Transfer', 'Credit Card', 'Check', 'Other'])
+      .withMessage('Valid payment method is required'),
+    body('status')
+      .optional()
+      .isIn(['Pending', 'Completed', 'Failed', 'Refunded'])
+      .withMessage('Invalid status'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
 
-    const { invoice_id, customer_id, payment_date, amount, payment_method, status = 'Pending', reference_number, notes } = req.body;
-    
-    // Verify invoice exists
-    const [invoiceRows] = await req.db.execute(
-      'SELECT id, invoice_number, total_amount FROM invoices WHERE id = ?',
-      [invoice_id]
-    );
-    
-    if (invoiceRows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invoice not found' });
-    }
-    
-    // Verify customer exists
-    const [customerRows] = await req.db.execute(
-      'SELECT id, name FROM customers WHERE id = ?',
-      [customer_id]
-    );
-    
-    if (customerRows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Customer not found' });
-    }
-    
-    // Generate payment number
-    const [countRows] = await req.db.execute('SELECT COUNT(*) as count FROM payments');
-    const paymentNumber = `PAY-${String(countRows[0].count + 1).padStart(3, '0')}`;
-    
-    // Create payment
-    const [result] = await req.db.execute(
-      'INSERT INTO payments (payment_number, invoice_id, customer_id, payment_date, amount, payment_method, status, reference_number, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [paymentNumber, invoice_id, customer_id, payment_date, amount, payment_method, status, reference_number, notes]
-    );
-    
-    // If payment is completed, update invoice status and customer balance
-    if (status === 'Completed') {
-      // Update invoice status to Paid
-      await req.db.execute(
-        'UPDATE invoices SET status = ? WHERE id = ?',
-        ['Paid', invoice_id]
-      );
-      
-      // Update customer balance (subtract payment amount)
-      await req.db.execute(
-        'UPDATE customers SET balance = balance - ? WHERE id = ?',
-        [amount, customer_id]
-      );
-    }
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'Payment created successfully',
-      data: { 
-        id: result.insertId,
-        payment_number: paymentNumber,
+      const {
         invoice_id,
-        invoice_number: invoiceRows[0].invoice_number,
         customer_id,
-        customer_name: customerRows[0].name,
+        payment_date,
+        amount,
+        payment_method,
+        status = 'Pending',
+        reference_number,
+        notes,
+      } = req.body;
+
+      const invoice = await Invoice.findOne({ legacy_id: Number(invoice_id) });
+      if (!invoice) {
+        return res.status(400).json({ success: false, error: 'Invoice not found' });
+      }
+
+      const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
+      if (!customer) {
+        return res.status(400).json({ success: false, error: 'Customer not found' });
+      }
+
+      const legacyId = await getNextSequence('payments');
+      const paymentNumber = `PAY-${String(legacyId).padStart(3, '0')}`;
+
+      const payment = await Payment.create({
+        legacy_id: legacyId,
+        payment_number: paymentNumber,
+        invoice: invoice._id,
+        customer: customer._id,
+        payment_date: new Date(payment_date),
+        amount: Number(amount),
+        payment_method,
+        status,
+        reference_number,
+        notes,
+      });
+
+      if (status === 'Completed') {
+        await Invoice.updateOne({ _id: invoice._id }, { status: 'Paid' });
+        await Customer.updateOne(
+          { _id: customer._id },
+          { $inc: { balance: -Number(amount) } }
+        );
+      }
+
+      const populated = await Payment.findById(payment._id)
+        .populate('invoice', 'legacy_id invoice_number total_amount')
+        .populate('customer', 'legacy_id name email')
+        .lean();
+
+      res.status(201).json({
+        success: true,
+        message: 'Payment created successfully',
+        data: formatPayment(populated),
+      });
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      res.status(500).json({ success: false, error: 'Failed to create payment' });
+    }
+  }
+);
+
+// Update payment
+router.put(
+  '/:id',
+  [
+    body('invoice_id').optional().isInt({ min: 1 }).withMessage('Valid invoice ID is required'),
+    body('customer_id').optional().isInt({ min: 1 }).withMessage('Valid customer ID is required'),
+    body('payment_date').optional().isISO8601().withMessage('Valid payment date is required'),
+    body('amount').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Amount must be a valid decimal'),
+    body('payment_method')
+      .optional()
+      .isIn(['Cash', 'Bank Transfer', 'Credit Card', 'Check', 'Other'])
+      .withMessage('Valid payment method is required'),
+    body('status')
+      .optional()
+      .isIn(['Pending', 'Completed', 'Failed', 'Refunded'])
+      .withMessage('Invalid status'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const numericId = Number(req.params.id);
+      if (Number.isNaN(numericId)) {
+        return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+      }
+
+      const currentPayment = await Payment.findOne({ legacy_id: numericId })
+        .populate('invoice')
+        .populate('customer');
+
+      if (!currentPayment) {
+        return res.status(404).json({ success: false, error: 'Payment not found' });
+      }
+
+      const updates = {};
+      const {
+        invoice_id,
+        customer_id,
         payment_date,
         amount,
         payment_method,
         status,
         reference_number,
-        notes
-      }
-    });
-  } catch (error) {
-    console.error('Error creating payment:', error);
-    res.status(500).json({ success: false, error: 'Failed to create payment' });
-  }
-});
+        notes,
+      } = req.body;
 
-// Update payment
-router.put('/:id', [
-  body('invoice_id').optional().isInt({ min: 1 }).withMessage('Valid invoice ID is required'),
-  body('customer_id').optional().isInt({ min: 1 }).withMessage('Valid customer ID is required'),
-  body('payment_date').optional().isISO8601().withMessage('Valid payment date is required'),
-  body('amount').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Amount must be a valid decimal'),
-  body('payment_method').optional().isIn(['Cash', 'Bank Transfer', 'Credit Card', 'Check', 'Other']).withMessage('Valid payment method is required'),
-  body('status').optional().isIn(['Pending', 'Completed', 'Failed', 'Refunded']).withMessage('Invalid status')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
-    }
-
-    const { invoice_id, customer_id, payment_date, amount, payment_method, status, reference_number, notes } = req.body;
-    
-    // Get current payment
-    const [currentRows] = await req.db.execute(
-      'SELECT * FROM payments WHERE id = ?',
-      [req.params.id]
-    );
-    
-    if (currentRows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Payment not found' });
-    }
-    
-    const currentPayment = currentRows[0];
-    
-    // Build dynamic query
-    const updates = [];
-    const values = [];
-    
-    if (invoice_id !== undefined) { updates.push('invoice_id = ?'); values.push(invoice_id); }
-    if (customer_id !== undefined) { updates.push('customer_id = ?'); values.push(customer_id); }
-    if (payment_date !== undefined) { updates.push('payment_date = ?'); values.push(payment_date); }
-    if (amount !== undefined) { updates.push('amount = ?'); values.push(amount); }
-    if (payment_method !== undefined) { updates.push('payment_method = ?'); values.push(payment_method); }
-    if (status !== undefined) { updates.push('status = ?'); values.push(status); }
-    if (reference_number !== undefined) { updates.push('reference_number = ?'); values.push(reference_number); }
-    if (notes !== undefined) { updates.push('notes = ?'); values.push(notes); }
-    
-    if (updates.length === 0) {
-      return res.status(400).json({ success: false, error: 'No fields to update' });
-    }
-    
-    values.push(req.params.id);
-    
-    // Update payment
-    const [result] = await req.db.execute(
-      `UPDATE payments SET ${updates.join(', ')} WHERE id = ?`,
-      values
-    );
-    
-    // Handle status changes
-    if (status !== undefined && status !== currentPayment.status) {
-      if (status === 'Completed' && currentPayment.status !== 'Completed') {
-        // Mark invoice as paid and update customer balance
-        await req.db.execute(
-          'UPDATE invoices SET status = ? WHERE id = ?',
-          ['Paid', invoice_id || currentPayment.invoice_id]
-        );
-        
-        const paymentAmount = amount || currentPayment.amount;
-        await req.db.execute(
-          'UPDATE customers SET balance = balance - ? WHERE id = ?',
-          [paymentAmount, customer_id || currentPayment.customer_id]
-        );
-      } else if (currentPayment.status === 'Completed' && status !== 'Completed') {
-        // Revert invoice status and customer balance
-        await req.db.execute(
-          'UPDATE invoices SET status = ? WHERE id = ?',
-          ['Pending', invoice_id || currentPayment.invoice_id]
-        );
-        
-        await req.db.execute(
-          'UPDATE customers SET balance = balance + ? WHERE id = ?',
-          [currentPayment.amount, customer_id || currentPayment.customer_id]
-        );
+      if (invoice_id !== undefined) {
+        const invoice = await Invoice.findOne({ legacy_id: Number(invoice_id) });
+        if (!invoice) {
+          return res.status(400).json({ success: false, error: 'Invoice not found' });
+        }
+        updates.invoice = invoice._id;
       }
+
+      if (customer_id !== undefined) {
+        const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
+        if (!customer) {
+          return res.status(400).json({ success: false, error: 'Customer not found' });
+        }
+        updates.customer = customer._id;
+      }
+
+      if (payment_date !== undefined) updates.payment_date = new Date(payment_date);
+      if (amount !== undefined) updates.amount = Number(amount);
+      if (payment_method !== undefined) updates.payment_method = payment_method;
+      if (status !== undefined) updates.status = status;
+      if (reference_number !== undefined) updates.reference_number = reference_number;
+      if (notes !== undefined) updates.notes = notes;
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ success: false, error: 'No fields to update' });
+      }
+
+      const amountToUse =
+        amount !== undefined ? Number(amount) : currentPayment.amount;
+
+      if (status !== undefined && status !== currentPayment.status) {
+        if (status === 'Completed' && currentPayment.status !== 'Completed') {
+          await Invoice.updateOne(
+            { _id: updates.invoice || currentPayment.invoice._id },
+            { status: 'Paid' }
+          );
+          await Customer.updateOne(
+            { _id: updates.customer || currentPayment.customer._id },
+            { $inc: { balance: -amountToUse } }
+          );
+        } else if (currentPayment.status === 'Completed' && status !== 'Completed') {
+          await Invoice.updateOne(
+            { _id: updates.invoice || currentPayment.invoice._id },
+            { status: 'Pending' }
+          );
+          await Customer.updateOne(
+            { _id: updates.customer || currentPayment.customer._id },
+            { $inc: { balance: currentPayment.amount } }
+          );
+        }
+      }
+
+      const payment = await Payment.findOneAndUpdate(
+        { legacy_id: numericId },
+        updates,
+        { new: true, runValidators: true }
+      )
+        .populate('invoice', 'legacy_id invoice_number total_amount')
+        .populate('customer', 'legacy_id name email')
+        .lean();
+
+      res.json({
+        success: true,
+        message: 'Payment updated successfully',
+        data: formatPayment(payment),
+      });
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      res.status(500).json({ success: false, error: 'Failed to update payment' });
     }
-    
-    res.json({ success: true, message: 'Payment updated successfully' });
-  } catch (error) {
-    console.error('Error updating payment:', error);
-    res.status(500).json({ success: false, error: 'Failed to update payment' });
   }
-});
+);
 
 // Delete payment
 router.delete('/:id', async (req, res) => {
   try {
-    // Get current payment
-    const [currentRows] = await req.db.execute(
-      'SELECT * FROM payments WHERE id = ?',
-      [req.params.id]
-    );
-    
-    if (currentRows.length === 0) {
+    const numericId = Number(req.params.id);
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+    }
+
+    const payment = await Payment.findOne({ legacy_id: numericId })
+      .populate('invoice')
+      .populate('customer');
+
+    if (!payment) {
       return res.status(404).json({ success: false, error: 'Payment not found' });
     }
-    
-    const currentPayment = currentRows[0];
-    
-    // Delete payment
-    const [result] = await req.db.execute(
-      'DELETE FROM payments WHERE id = ?',
-      [req.params.id]
-    );
-    
-    // If payment was completed, revert invoice status and customer balance
-    if (currentPayment.status === 'Completed') {
-      await req.db.execute(
-        'UPDATE invoices SET status = ? WHERE id = ?',
-        ['Pending', currentPayment.invoice_id]
+
+    await Payment.deleteOne({ _id: payment._id });
+
+    if (payment.status === 'Completed') {
+      await Invoice.updateOne(
+        { _id: payment.invoice._id },
+        { status: 'Pending' }
       );
-      
-      await req.db.execute(
-        'UPDATE customers SET balance = balance + ? WHERE id = ?',
-        [currentPayment.amount, currentPayment.customer_id]
+      await Customer.updateOne(
+        { _id: payment.customer._id },
+        { $inc: { balance: payment.amount } }
       );
     }
-    
+
     res.json({ success: true, message: 'Payment deleted successfully' });
   } catch (error) {
     console.error('Error deleting payment:', error);
@@ -257,4 +317,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

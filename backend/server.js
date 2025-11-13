@@ -1,39 +1,52 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+import customersRouter from './routes/customers.js';
+import itemsRouter from './routes/items.js';
+import rawMaterialsRouter from './routes/rawMaterials.js';
+import manufacturingRouter from './routes/manufacturing.js';
+import invoicesRouter from './routes/invoices.js';
+import paymentsRouter from './routes/payments.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Database connection configuration
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'stock_craft_billing',
-  port: process.env.DB_PORT || 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+// Custom logging utility
+const logger = {
+  info: (message) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`ℹ️  ${message}`);
+    }
+  },
+  success: (message) => {
+    console.log(`✅ ${message}`);
+  },
+  error: (message) => {
+    console.error(`❌ ${message}`);
+  },
+  warning: (message) => {
+    console.warn(`⚠️  ${message}`);
+  }
 };
 
-// Create database connection pool
-const pool = mysql.createPool(dbConfig);
+// Database connection
+async function connectDatabase() {
+  const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/stock_craft_billing';
 
-// Test database connection
-async function testDatabaseConnection() {
   try {
-    const connection = await pool.getConnection();
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000
+    });
     logger.success('Database connected successfully');
-    connection.release();
-    return true;
   } catch (error) {
     logger.error(`Database connection failed: ${error.message}`);
-    logger.warning('Make sure MySQL is running and the database exists');
-    return false;
+    logger.warning('Make sure MongoDB is running and accessible');
   }
 }
 
@@ -58,77 +71,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database is now connected via MySQL connection pool
-
-// Custom logging utility
-const logger = {
-  info: (message) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`ℹ️  ${message}`);
-    }
-  },
-  success: (message) => {
-    console.log(`✅ ${message}`);
-  },
-  error: (message) => {
-    console.error(`❌ ${message}`);
-  },
-  warning: (message) => {
-    console.warn(`⚠️  ${message}`);
-  }
-};
-
-// Database functions for real MySQL operations
-
-// Database middleware
-app.use((req, res, next) => {
-  req.db = {
-    execute: async (query, params = []) => {
-      try {
-        const [rows] = await pool.execute(query, params);
-        return [rows];
-      } catch (error) {
-        console.error('Database query error:', error);
-        throw error;
-      }
-    },
-    withTransaction: async (callback) => {
-      const connection = await pool.getConnection();
-      try {
-        await connection.beginTransaction();
-        const txDb = {
-          execute: async (query, params = []) => {
-            const [rows] = await connection.execute(query, params);
-            return [rows];
-          },
-        };
-        const result = await callback(txDb);
-        await connection.commit();
-        return result;
-      } catch (err) {
-        try { await connection.rollback(); } catch (_) {}
-        throw err;
-      } finally {
-        connection.release();
-      }
-    }
-  };
-  next();
-});
-
 // Routes
-app.use('/api/customers', require('./routes/customers'));
-app.use('/api/items', require('./routes/items'));
-app.use('/api/raw-materials', require('./routes/rawMaterials'));
-app.use('/api/manufacturing', require('./routes/manufacturing'));
-app.use('/api/invoices', require('./routes/invoices'));
-app.use('/api/payments', require('./routes/payments'));
+app.use('/api/customers', customersRouter);
+app.use('/api/items', itemsRouter);
+app.use('/api/raw-materials', rawMaterialsRouter);
+app.use('/api/manufacturing', manufacturingRouter);
+app.use('/api/invoices', invoicesRouter);
+app.use('/api/payments', paymentsRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Stock Craft Billing API is running with MySQL database',
+    message: 'Stock Craft Billing API is running with MongoDB database',
     timestamp: new Date().toISOString()
   });
 });
@@ -145,21 +100,28 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Start server
-app.listen(PORT, async () => {
-  logger.success(`Server running on port ${PORT}`);
-  
-  // Test database connection
-  const dbConnected = await testDatabaseConnection();
-  if (dbConnected) {
-    logger.info(`Connected to MySQL database: ${dbConfig.database}`);
-  } else {
-    logger.warning('Running without database connection - some features may not work');
-  }
+async function startServer() {
+  await connectDatabase();
+
+  app.listen(PORT, () => {
+    logger.success(`Server running on port ${PORT}`);
+
+    if (mongoose.connection.readyState === 1) {
+      logger.info(`Connected to MongoDB database: ${mongoose.connection.name}`);
+    } else {
+      logger.warning('Running without database connection - some features may not work');
+    }
+  });
+}
+
+startServer().catch((error) => {
+  logger.error(`Failed to start server: ${error.message}`);
+  process.exit(1);
 });
 
-module.exports = app;
+export default app;
