@@ -1,7 +1,8 @@
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -10,27 +11,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { AddCustomerDialog } from "@/components/forms/AddCustomerDialog";
+import { EditCustomerDialog } from "@/components/forms/EditCustomerDialog";
 import { useCustomers } from "@/hooks/useAPI";
-import { useState } from "react";
 
 export default function Customers() {
   const { data: customersData, isLoading, error } = useCustomers();
   const [searchTerm, setSearchTerm] = useState("");
-  
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   const customers = customersData?.data || [];
 
-  // Filter customers based on search term
-  const filteredCustomers = customers.filter((customer: any) =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.mobile_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.gst_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCustomers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return customers;
+    }
+
+    return customers.filter((customer: any) => {
+      const fields = [
+        customer?.name,
+        customer?.email,
+        customer?.mobile_number,
+        customer?.city,
+        customer?.state,
+        customer?.country,
+        customer?.gst_number,
+      ];
+
+      return fields.some((value) => value && value.toString().toLowerCase().includes(query));
+    });
+  }, [customers, searchTerm]);
+
+  const handleEditClick = (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsEditOpen(true);
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsEditOpen(open);
+    if (!open) {
+      setSelectedCustomer(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -118,7 +142,9 @@ export default function Customers() {
                       </Badge>
                     </TableCell> */}
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Edit</Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleEditClick(customer)}>
+                        Edit
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -127,6 +153,12 @@ export default function Customers() {
           </Table>
         </CardContent>
       </Card>
+
+      <EditCustomerDialog
+        open={isEditOpen}
+        customer={selectedCustomer}
+        onOpenChange={handleDialogOpenChange}
+      />
     </div>
   );
 }
