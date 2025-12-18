@@ -16,6 +16,7 @@ interface ItemFormData {
   name: string;
   gram: number;
   category: string;
+  current_stock: number;
   price: number;
 }
 
@@ -23,6 +24,7 @@ const initialFormData: ItemFormData = {
   name: '',
   gram: 0,
   category: '',
+  current_stock: 0,
   price: 0,
 };
 
@@ -33,7 +35,7 @@ export function AddItemDialog() {
   const [formData, setFormData] = useState<ItemFormData>(initialFormData);
   const [errors, setErrors] = useState<ItemFormErrors>({});
   const [isPriceEditing, setIsPriceEditing] = useState(false);
-  
+
   const createItem = useCreateItem();
 
   const handleInputChange = <K extends keyof ItemFormData>(field: K, value: ItemFormData[K]) => {
@@ -69,7 +71,7 @@ export function AddItemDialog() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -158,6 +160,19 @@ export function AddItemDialog() {
               className={errors.category ? 'border-red-500' : ''}
             />
             {errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="current_stock">Current Stock (kg)</Label>
+            <Input
+              id="current_stock"
+              type="number"
+              step="1"
+              min="0"
+              value={formData.current_stock || ''}
+              onChange={(e) => handleInputChange('current_stock', parseInt(e.target.value) || 0)}
+              placeholder="0"
+              className={errors.current_stock ? 'border-red-500' : ''} />
+            {errors.current_stock && <p className="text-sm text-red-500">{errors.current_stock}</p>}
           </div>
 
           <div className="space-y-2">

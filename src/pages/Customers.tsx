@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Pencil, Search, Trash } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,14 @@ import {
 import { AddCustomerDialog } from "@/components/forms/AddCustomerDialog";
 import { EditCustomerDialog } from "@/components/forms/EditCustomerDialog";
 import { useCustomers } from "@/hooks/useAPI";
+import CustomerDeletePopUp from "@/components/popUp/CustomerDeletePopUp";
 
 export default function Customers() {
-  const { data: customersData, isLoading, error } = useCustomers();
+  const { data: customersData, isLoading, error, refetch } = useCustomers();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const customers = customersData?.data || [];
 
@@ -35,6 +37,7 @@ export default function Customers() {
         customer?.email,
         customer?.mobile_number,
         customer?.city,
+        customer?.pincode,
         customer?.state,
         customer?.country,
         customer?.gst_number,
@@ -47,6 +50,18 @@ export default function Customers() {
   const handleEditClick = (customer: any) => {
     setSelectedCustomer(customer);
     setIsEditOpen(true);
+  };
+
+  const handleDeleteClick = (customer:any) => { 
+    setSelectedCustomer(customer);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDeleteOpenChange = (open: boolean) => {
+    setIsDeleteOpen(open);
+    if (!open) {
+      setSelectedCustomer(null);
+    }
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -117,7 +132,7 @@ export default function Customers() {
                 <TableHead>City</TableHead>
                 <TableHead>GST Number</TableHead>
                 <TableHead>Balance</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -135,18 +150,21 @@ export default function Customers() {
                     <TableCell>{customer.mobile_number || '-'}</TableCell>
                     <TableCell>{customer.city || '-'}</TableCell>
                     <TableCell>{customer.gst_number || '-'}</TableCell>
-                    <TableCell className="font-semibold">${customer.balance}</TableCell>
+                    <TableCell className="font-semibold">₹{customer.balance}</TableCell>
                     {/* <TableCell>
                       <Badge variant={customer.status === "Active" ? "default" : "secondary"}>
                         {customer.status}
                       </Badge>
                     </TableCell> */}
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditClick(customer)}>
-                        Edit
+                    <TableCell className="text-center">
+                      <Button variant="outline" size="sm" className="mr-2" onClick={() => handleEditClick(customer)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" className="ml-2" onClick={() => handleDeleteClick(customer)}>
+                        <Trash className="h-4 w-4" />
                       </Button>
                     </TableCell>
-                  </TableRow>
+                  </TableRow> 
                 ))
               )}
             </TableBody>
@@ -158,6 +176,11 @@ export default function Customers() {
         open={isEditOpen}
         customer={selectedCustomer}
         onOpenChange={handleDialogOpenChange}
+      />
+      <CustomerDeletePopUp
+        open={isDeleteOpen}
+        customer={selectedCustomer}
+        onOpenChange={handleDeleteOpenChange}
       />
     </div>
   );

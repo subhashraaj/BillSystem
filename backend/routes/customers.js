@@ -70,6 +70,13 @@ router.post(
         return String(value).trim().length >= 10;
       })
       .withMessage('Mobile number must be at least 10 characters'),
+    body('address')
+      .optional()
+      .custom((value) => {
+        if (!value || (typeof value === 'string' && value.trim() === '')) return true;
+        return String(value).trim().length >= 2;
+      })
+      .withMessage('Address must be at least 5 characters'),
     body('city')
       .optional()
       .custom((value) => {
@@ -77,6 +84,13 @@ router.post(
         return String(value).trim().length >= 2;
       })
       .withMessage('City must be at least 2 characters'),
+    body('pincode')
+    .optional()
+    .custom((value) => {
+      if (!value || (typeof value === 'string' && value.trim() === '')) return true;
+      return String(value).trim().length >= 6;
+    })
+    .withMessage('City must be at least 2 characters'),
     body('state')
       .optional()
       .custom((value) => {
@@ -131,7 +145,9 @@ router.post(
         name,
         phone,
         mobile_number,
+        address,
         city,
+        pincode,
         state,
         country,
         gst_number,
@@ -146,7 +162,9 @@ router.post(
         name: name.trim(),
         phone: normalizeOptional(phone),
         mobile_number: normalizeOptional(mobile_number),
+        address: normalizeOptional(address),
         city: normalizeOptional(city),
+        pincode: pincode,
         state: normalizeOptional(state),
         country: normalizeOptional(country),
         gst_number: normalizeOptional(gst_number),
@@ -162,8 +180,9 @@ router.post(
 
       res.status(201).json({
         success: true,
-        message: 'Customer created successfully',
+        message: req.body,
         data: customer.toJSON(),
+
       });
     } catch (error) {
       console.error('Error creating customer:', error);
@@ -175,6 +194,7 @@ router.post(
   }
 );
 
+
 // Update customer
 router.put(
   '/:id',
@@ -183,7 +203,9 @@ router.put(
     body('email').optional().isEmail().withMessage('Valid email is required'),
     body('phone').optional().isLength({ min: 10 }).withMessage('Phone must be at least 10 characters'),
     body('mobile_number').optional().isLength({ min: 10 }).withMessage('Mobile number must be at least 10 characters'),
+    body('address').optional().isLength({ min: 5 }).withMessage('Address must be at least 5 characters'),
     body('city').optional().isLength({ min: 2 }).withMessage('City must be at least 2 characters'),
+    body('pincode').optional().isLength({ min: 6}).withMessage('Pincode'),
     body('state').optional().isLength({ min: 2 }).withMessage('State must be at least 2 characters'),
     body('country').optional().isLength({ min: 2 }).withMessage('Country must be at least 2 characters'),
     body('gst_number')
@@ -217,6 +239,7 @@ router.put(
         'mobile_number',
         'address',
         'city',
+        'pincode',
         'state',
         'country',
         'gst_number',

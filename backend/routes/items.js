@@ -65,7 +65,7 @@ router.post(
         sku,
         description,
         category,
-        current_stock = 0,
+        current_stock,
         price,
         cost = 0,
         status = 'In Stock',

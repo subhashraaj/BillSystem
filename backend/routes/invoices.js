@@ -143,7 +143,7 @@ router.post(
       const totalAmount = subtotal + taxAmount;
 
       const legacyId = await getNextSequence('invoices');
-      const invoiceNumber = `INV-${String(legacyId).padStart(3, '0')}`;
+      const invoiceNumber = `ARR-${String(legacyId).padStart(4, '0')}`;
 
       const invoice = await Invoice.create({
         legacy_id: legacyId,

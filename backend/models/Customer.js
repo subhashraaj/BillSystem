@@ -34,6 +34,11 @@ const customerSchema = new Schema(
       type: String,
       trim: true,
     },
+    pincode: {
+      type: String,
+      trim: true,
+      required: true
+    },
     state: {
       type: String,
       trim: true,

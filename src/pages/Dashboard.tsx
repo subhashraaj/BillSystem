@@ -26,7 +26,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Revenue"
-          value="$45,231"
+          value="₹45,231"
           icon={DollarSign}
           trend="+12.5% from last month"
           trendUp={true}
@@ -47,7 +47,7 @@ export default function Dashboard() {
         />
         <MetricCard
           title="Pending Payments"
-          value="$8,420"
+          value="₹8,420"
           icon={AlertTriangle}
           trend="5 invoices overdue"
           trendUp={false}
