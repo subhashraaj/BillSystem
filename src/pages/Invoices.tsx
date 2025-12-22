@@ -30,6 +30,15 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@radix-ui/react-popover";
+import {
+  Command,
+  CommandInput,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
 
 
 
@@ -50,7 +59,11 @@ export default function Invoices() {
       default: return "secondary";
     }
   };
-
+  const [selectedCity, setSelectedCity] = useState<string | null>(null)
+  const [customerQuery, setCustomerQuery] = useState("")
+  const [showCustomerList, setShowCustomerList] = useState(false)
+  const [cityQuery, setCityQuery] = useState("")
+  const [showCityList, setShowCityList] = useState(false)
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
@@ -58,9 +71,13 @@ export default function Invoices() {
   const [invoiceDate, setInvoiceDate] = useState(
     new Date().toISOString().split("T")[0] // YYYY-MM-DD
   );
-  
+
   const [dueDate, setDueDate] = useState("");
-  
+
+  const cities = Array.from(
+    new Set(customers.map((c: any) => c.city).filter(Boolean))
+  )  
+
   const handleCreateInvoiceClick = () => {
 
     setIsCreateInvoiceOpen(true);
@@ -112,7 +129,7 @@ export default function Invoices() {
 
   const handleCreateInvoice = async () => {
     if (!selectedCustomer || selectedItem.length === 0) return;
-  
+
     const payload = {
       customer_id: Number(selectedCustomer),
       invoice_date: invoiceDate,
@@ -123,7 +140,7 @@ export default function Invoices() {
         quantity: item.quantity,
       })),
     };
-  
+
     try {
       await createInvoice(payload);
       setIsCreateInvoiceOpen(false);
@@ -133,8 +150,15 @@ export default function Invoices() {
       console.error("Failed to create invoice", err);
     }
   };
-  
-  
+
+  const filteredCustomers = selectedCity
+  ? customers.filter(
+      (c: any) =>
+        c.city?.toLowerCase() === selectedCity.toLowerCase()
+    )
+  : customers
+
+
 
 
 
@@ -156,7 +180,7 @@ export default function Invoices() {
             <DialogTitle>Create Invoice</DialogTitle>
             <DialogDescription>Fill out the details to create a new invoice.</DialogDescription>
           </DialogHeader>
-          <div style={{padding:"5px"}} className="flex-1 overflow-y-auto space-y-4 pr-2">
+          <div style={{ padding: "5px" }} className="flex-1 overflow-y-auto space-y-4 pr-2">
             <div style={{ display: "flex", justifyContent: "space-between" }}>
 
               {/* Invoice Generate */}
@@ -187,23 +211,109 @@ export default function Invoices() {
               })()}
             </div>
 
+
+            {/* City Select */}
+
+            <div className="space-y-2 relative">
+              <label className="text-sm font-medium">City</label>
+
+              <Input
+                placeholder="Type city name"
+                value={cityQuery}
+                onChange={(e) => {
+                  setCityQuery(e.target.value)
+                  setShowCityList(true)
+                }}
+                onFocus={() => setShowCityList(true)}
+                onBlur={() => setTimeout(() => setShowCityList(false), 150)}
+              />
+
+              {showCityList && cityQuery && (
+                <div className="absolute z-10 w-full bg-background border rounded-md shadow-md max-h-48 overflow-y-auto">
+                  {customers
+                    .filter((customer: any) =>
+                      customer.city
+                        .toLowerCase()
+                        .includes(customerQuery.toLowerCase())
+                    )
+                    .map((customer: any) => (
+                      <div
+                        key={customer.id}
+                        className="px-3 py-2 cursor-pointer hover:bg-muted"
+                        onMouseDown={() => {
+                          setSelectedCustomer(customer.id.toString())
+                          setCustomerQuery(customer.city)
+                          setShowCustomerList(false)
+                        }}
+                      >
+                        {customer.city}
+                      </div>
+                    ))}
+
+                  {customers.filter((c: any) =>
+                    c.city.toLowerCase().includes(customerQuery.toLowerCase())
+                  ).length === 0 && (
+                      <div className="px-2 py-2 text-sm text-muted-foreground">
+                        No city found
+                      </div>
+                    )}
+                </div>
+              )}
+            </div>
+
+
+
             {/* Customer Select */}
 
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <label className="text-sm font-medium">Customer</label>
-              <Select onValueChange={(value) => setSelectedCustomer(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer: any) => (
-                    <SelectItem key={customer.id} value={customer.id.toString()}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+              <Input
+                placeholder="Type customer name"
+                value={customerQuery}
+                onChange={(e) => {
+                  setCustomerQuery(e.target.value)
+                  setShowCustomerList(true)
+                  setSelectedCustomer(null)
+                }}
+                onFocus={() => setShowCustomerList(true)}
+                onBlur={() => setTimeout(() => setShowCustomerList(false), 150)}
+              />
+
+              {showCustomerList && customerQuery && (
+                <div className="absolute z-10 w-full bg-background border rounded-md shadow-md max-h-48 overflow-y-auto">
+                  {filteredCustomers
+                    .filter((customer: any) =>
+                      customer.name
+                        .toLowerCase()
+                        .includes(customerQuery.toLowerCase())
+                    )
+                    .map((customer: any) => (
+                      <div
+                        key={customer.id}
+                        className="px-3 py-2 cursor-pointer hover:bg-muted"
+                        onMouseDown={() => {
+                          setSelectedCustomer(customer.id.toString())
+                          setCustomerQuery(customer.name)
+                          setShowCustomerList(false)
+                        }}
+                      >
+                        {customer.name}
+                      </div>
+                    ))}
+
+                  {filteredCustomers  .filter((c: any) =>
+                    c.name.toLowerCase().includes(customerQuery.toLowerCase())
+                  ).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No customer found
+                      </div>
+                    )}
+                </div>
+              )}
             </div>
+
+
 
 
             {/* Item Select */}
@@ -211,7 +321,7 @@ export default function Invoices() {
               <label className="text-sm font-medium">Items</label>
               <Select onValueChange={handleAddItem}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select items" />  
+                  <SelectValue placeholder="Select items" />
                 </SelectTrigger>
                 <SelectContent>
                   {items.map((item: any) => (
@@ -234,7 +344,8 @@ export default function Invoices() {
                   >
                     <div>
                       <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">₹{item.price} each</p>
+
+                      <input className="text-sm text-muted-foreground" value={item.price}>₹ each</input>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -275,7 +386,7 @@ export default function Invoices() {
             )}
           </div>
 
-          
+
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsCreateInvoiceOpen(false)}>

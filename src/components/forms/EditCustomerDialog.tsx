@@ -19,7 +19,9 @@ interface EditCustomerDialogProps {
 interface CustomerFormData {
   name: string;
   mobile_number: string;
+  address: string;
   city: string;
+  pincode: string;
   state: string;
   country: string;
   gst_number: string;
@@ -32,7 +34,9 @@ type CustomerFormErrors = Partial<Record<keyof CustomerFormData, string>>;
 const emptyForm: CustomerFormData = {
   name: '',
   mobile_number: '',
+  address: '',
   city: '',
+  pincode: '',
   state: '',
   country: '',
   gst_number: '',
@@ -49,7 +53,9 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
     return {
       name: customer.name ?? '',
       mobile_number: customer.mobile_number ?? '',
+      address: customer.address ?? '',
       city: customer.city ?? '',
+      pincode: customer.pincode ?? '',
       state: customer.state ?? '',
       country: customer.country ?? '',
       gst_number: customer.gst_number ?? '',
@@ -84,6 +90,14 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
       newErrors.name = 'Name is required';
     }
 
+    if (formData.address && formData.address.length < 5) {
+      newErrors.address = 'Address must be at least 5 characters';
+    }
+
+    if (formData.city && formData.city.length < 2) {
+      newErrors.city = 'City must be at least 2 characters';
+    }
+
     if (formData.mobile_number && formData.mobile_number.length < 10) {
       newErrors.mobile_number = 'Mobile number must be at least 10 characters';
     }
@@ -113,7 +127,9 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
     const payload = {
       name: formData.name.trim(),
       mobile_number: formData.mobile_number.trim() || null,
+      address: formData.address.trim() || null,
       city: formData.city.trim() || null,
+      pincode: formData.pincode.trim() || null,
       state: formData.state.trim() || null,
       country: formData.country.trim() || null,
       gst_number: formData.gst_number.trim() || null,
@@ -139,6 +155,9 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
           <DialogTitle>Edit Customer</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
+
+          {/* Name */}
+
           <div className="space-y-2">
             <Label htmlFor="edit-name">Name *</Label>
             <Input
@@ -151,7 +170,26 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
             {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
           </div>
 
+          {/* Address */}
           <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                placeholder="Enter address"
+                className={errors.address ? 'border-red-500' : ''}
+              />
+              {errors.address && <p className="text-sm text-red-500">{errors.address}</p>}
+            </div>
+          </div>
+
+
+
+          {/* Mobile Number & city */}
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-mobile">Mobile Number</Label>
               <Input
@@ -163,37 +201,56 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
               />
               {errors.mobile_number && <p className="text-sm text-red-500">{errors.mobile_number}</p>}
             </div>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">City</Label>
+                <Input
+                  id="edit-city"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  placeholder="Enter city"
+                />
+              </div>
+            </div>
           </div>
 
+          {/*Pincode, State & Country */}
+
           <div className="grid grid-cols-3 gap-4">
+
             <div className="space-y-2">
-              <Label htmlFor="edit-city">City</Label>
+              <Label htmlFor="pincode">Pincode</Label>
               <Input
-                id="edit-city"
-                value={formData.city}
-                onChange={(e) => handleInputChange('city', e.target.value)}
-                placeholder="Enter city"
+                id="pincode"
+                value={formData.pincode}
+                onChange={(e) => handleInputChange('pincode', e.target.value)}
+                placeholder="Enter pincode"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="edit-state">State</Label>
+              <Label htmlFor="state">State</Label>
               <Input
-                id="edit-state"
+                id="state"
                 value={formData.state}
                 onChange={(e) => handleInputChange('state', e.target.value)}
                 placeholder="Enter state"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-country">Country</Label>
+              <Label htmlFor="country">Country</Label>
               <Input
-                id="edit-country"
+                id="country"
                 value={formData.country}
                 onChange={(e) => handleInputChange('country', e.target.value)}
                 placeholder="Enter country"
               />
             </div>
           </div>
+
+
+
+          {/* GST Number */}
 
           <div className="space-y-2">
             <Label htmlFor="edit-gst">GST Number</Label>
@@ -208,6 +265,8 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
             {errors.gst_number && <p className="text-sm text-red-500">{errors.gst_number}</p>}
           </div>
 
+          {/* Balance */}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-balance">Balance</Label>
@@ -221,7 +280,7 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
               />
               {errors.balance && <p className="text-sm text-red-500">{errors.balance}</p>}
             </div>
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label htmlFor="edit-opening-balance">Opening Balance</Label>
               <Input
                 id="edit-opening-balance"
@@ -236,7 +295,7 @@ export function EditCustomerDialog({ open, customer, onOpenChange }: EditCustome
               {errors.opening_balance && (
                 <p className="text-sm text-red-500">{errors.opening_balance}</p>
               )}
-            </div>
+            </div> */}
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">

@@ -149,7 +149,7 @@ export function AddCustomerDialog() {
               </div>
             </div>
 
-            {/* Row 2: Mobile */}
+            {/* Row 2: Mobile & city */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="mobile_number">Mobile Number</Label>
@@ -175,7 +175,7 @@ export function AddCustomerDialog() {
 
             
 
-            {/* Row 3: City,Pincode, State, Country */}
+            {/* Row 3: Pincode, State, Country */}
             <div className="grid grid-cols-3 gap-4">
               
               <div className="space-y-2">
@@ -238,7 +238,7 @@ export function AddCustomerDialog() {
                 {errors.balance && <p className="text-sm text-red-500">{errors.balance}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="opening_balance">Opening Balance</Label>
+                <Label htmlFor="opening_balance">Opening Balance</Label><span style={{fontSize: "12px"}}> (One time Entry)</span>
                 <Input
                   id="opening_balance"
                   type="number"

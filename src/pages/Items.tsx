@@ -26,10 +26,12 @@ export default function Items() {
   const items = itemsData?.data || [];
 
   // Filter items based on search term
-  const filteredItems = items.filter((item: any) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = items.filter((item: any) => {
+
+    if(!searchTerm) return true;
+    const match = item.name?.match(/no\.(\d+)/i);
+    return match?.[1] === searchTerm;
+  });
 
   const getStockStatus = (stock: number) => {
     if (stock > 50) return { label: "In Stock", variant: "default" as const };
@@ -105,7 +107,7 @@ export default function Items() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search items..."
+                placeholder="Search for size..."
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
