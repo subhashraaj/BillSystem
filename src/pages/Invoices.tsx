@@ -39,6 +39,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
 
 
 
@@ -72,8 +73,8 @@ export default function Invoices() {
     new Date().toISOString().split("T")[0] // YYYY-MM-DD
   );
 
-  const [dueDate, setDueDate] = useState(""); 
-
+  const [dueDate, setDueDate] = useState("");
+  const [isDeleteInvoiceOpen, setIsDeleteInvoiceOpen] = useState(false);
   const handleCreateInvoiceClick = () => {
 
     setIsCreateInvoiceOpen(true);
@@ -89,7 +90,7 @@ export default function Invoices() {
 
   const cities = Array.from(
     new Set(customers.map((c: any) => c.city).filter((city): city is string => Boolean(city))
-  ))  
+    ))
 
 
   const handleAddItem = (itemId: string) => {
@@ -154,11 +155,26 @@ export default function Invoices() {
   };
 
   const filteredCustomers = selectedCity
-  ? customers.filter(
+    ? customers.filter(
       (c: any) =>
         c.city?.toLowerCase() === selectedCity.toLowerCase()
     )
-  : customers
+    : customers
+
+  const handleDeleteInvoice = (invoice: {
+    id: number;
+    invoice_number: string;
+  }) => {
+    setSelectedInvoice(invoice);
+    setIsDeleteInvoiceOpen(true);
+  };
+
+  const handleDeleteInvoiceOpenChange = (open: boolean) => {
+    setIsDeleteInvoiceOpen(open);
+    if (!open) {
+      setSelectedInvoice(null);
+    }
+  };
 
 
 
@@ -304,7 +320,7 @@ export default function Invoices() {
                       </div>
                     ))}
 
-                  {filteredCustomers  .filter((c: any) =>
+                  {filteredCustomers.filter((c: any) =>
                     c.name.toLowerCase().includes(customerQuery.toLowerCase())
                   ).length === 0 && (
                       <div className="px-3 py-2 text-sm text-muted-foreground">
@@ -398,6 +414,11 @@ export default function Invoices() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <InvoiceDeletePopUp
+        open={isDeleteInvoiceOpen}
+        onOpenChange={handleDeleteInvoiceOpenChange}
+        invoice={selectedInvoice}
+      />
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center gap-4">
@@ -432,7 +453,7 @@ export default function Invoices() {
                     <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="sm">Delete</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice({ id: invoice.id, invoice_number: invoice.invoice_number })}>Delete</Button>
                     <Button variant="ghost" size="sm">View</Button>
                     <Button variant="ghost" size="sm">
                       <Download className="h-4 w-4" />
