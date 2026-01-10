@@ -72,11 +72,7 @@ export default function Invoices() {
     new Date().toISOString().split("T")[0] // YYYY-MM-DD
   );
 
-  const [dueDate, setDueDate] = useState("");
-
-  const cities = Array.from(
-    new Set(customers.map((c: any) => c.city).filter(Boolean))
-  )  
+  const [dueDate, setDueDate] = useState(""); 
 
   const handleCreateInvoiceClick = () => {
 
@@ -90,6 +86,10 @@ export default function Invoices() {
       setSelectedItem([]);
     }
   }
+
+  const cities = Array.from(
+    new Set(customers.map((c: any) => c.city).filter((city): city is string => Boolean(city))
+  ))  
 
 
   const handleAddItem = (itemId: string) => {
@@ -116,6 +116,8 @@ export default function Invoices() {
       )
     );
   };
+
+  // console.log(customersData)
 
   // TAX TOTAL
 
@@ -220,38 +222,38 @@ export default function Invoices() {
               <Input
                 placeholder="Type city name"
                 value={cityQuery}
+                onFocus={() => setShowCityList(true)}
                 onChange={(e) => {
                   setCityQuery(e.target.value)
                   setShowCityList(true)
                 }}
-                onFocus={() => setShowCityList(true)}
                 onBlur={() => setTimeout(() => setShowCityList(false), 150)}
               />
 
               {showCityList && cityQuery && (
                 <div className="absolute z-10 w-full bg-background border rounded-md shadow-md max-h-48 overflow-y-auto">
-                  {customers
-                    .filter((customer: any) =>
-                      customer.city
+                  {cities
+                    .filter((city: any) =>
+                      city
                         .toLowerCase()
-                        .includes(customerQuery.toLowerCase())
+                        .includes(cityQuery.toLowerCase())
                     )
-                    .map((customer: any) => (
+                    .map((city: any) => (
                       <div
-                        key={customer.id}
+                        key={city.id}
                         className="px-3 py-2 cursor-pointer hover:bg-muted"
                         onMouseDown={() => {
-                          setSelectedCustomer(customer.id.toString())
-                          setCustomerQuery(customer.city)
-                          setShowCustomerList(false)
+                          setSelectedCity(city)
+                          setCityQuery(city)
+                          setShowCityList(false)
                         }}
                       >
-                        {customer.city}
+                        {city}
                       </div>
                     ))}
 
-                  {customers.filter((c: any) =>
-                    c.city.toLowerCase().includes(customerQuery.toLowerCase())
+                  {cities.filter((c: any) =>
+                    c.city?.toLowerCase().includes(cityQuery.toLowerCase())
                   ).length === 0 && (
                       <div className="px-2 py-2 text-sm text-muted-foreground">
                         No city found
@@ -345,7 +347,7 @@ export default function Invoices() {
                     <div>
                       <p className="font-medium">{item.name}</p>
 
-                      <input className="text-sm text-muted-foreground" value={item.price}>₹ each</input>
+                      <p className="text-sm text-muted-foreground">₹{item.price} each</p>
                     </div>
 
                     <div className="flex items-center gap-2">
