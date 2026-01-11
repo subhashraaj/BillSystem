@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/command";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
 import {InvoiceViewDialog} from "@/components/forms/InvoiceViewDialog";
+import { handleDownloadPDF } from "@/components/forms/DownloadPDF";
 
 
 
@@ -465,7 +466,7 @@ export default function Invoices() {
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice({ id: invoice.id, invoice_number: invoice.invoice_number })}>Delete</Button>
                     <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>View</Button>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" onClick={() => handleDownloadPDF(invoice.id.toString())}>
                       <Download className="h-4 w-4" />
                     </Button>
                   </TableCell>
