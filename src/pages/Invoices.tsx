@@ -451,7 +451,6 @@ export default function Invoices() {
                 <TableHead>Date</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -463,9 +462,6 @@ export default function Invoices() {
                   <TableCell>{invoice.invoice_date}</TableCell>
                   <TableCell>{invoice.item_count} items</TableCell>
                   <TableCell className="font-semibold">{invoice.total_amount}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
-                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice({ id: invoice.id, invoice_number: invoice.invoice_number })}>Delete</Button>
                     <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>View</Button>
