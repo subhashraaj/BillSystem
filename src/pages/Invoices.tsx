@@ -40,6 +40,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
+import {InvoiceViewDialog} from "@/components/forms/InvoiceViewDialog";
 
 
 
@@ -72,6 +73,14 @@ export default function Invoices() {
   const [invoiceDate, setInvoiceDate] = useState(
     new Date().toISOString().split("T")[0] // YYYY-MM-DD
   );
+  const [isViewInvoiceOpen, setIsViewInvoiceOpen] = useState(false);
+  const [viewInvoice, setViewInvoice] = useState<any | null>(null);
+  const handleViewInvoice = (invoice: any) => {
+    setViewInvoice(invoice);
+    setIsViewInvoiceOpen(true);
+  };
+
+
 
   const [dueDate, setDueDate] = useState("");
   const [isDeleteInvoiceOpen, setIsDeleteInvoiceOpen] = useState(false);
@@ -238,7 +247,6 @@ export default function Invoices() {
               <Input
                 placeholder="Type city name"
                 value={cityQuery}
-                onFocus={() => setShowCityList(true)}
                 onChange={(e) => {
                   setCityQuery(e.target.value)
                   setShowCityList(true)
@@ -419,6 +427,12 @@ export default function Invoices() {
         onOpenChange={handleDeleteInvoiceOpenChange}
         invoice={selectedInvoice}
       />
+      <InvoiceViewDialog
+        open={isViewInvoiceOpen}
+        onOpenChange={setIsViewInvoiceOpen}
+        invoice={viewInvoice}
+      />
+
       <Card className="shadow-card">
         <CardHeader>
           <div className="flex items-center gap-4">
@@ -454,7 +468,7 @@ export default function Invoices() {
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice({ id: invoice.id, invoice_number: invoice.invoice_number })}>Delete</Button>
-                    <Button variant="ghost" size="sm">View</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>View</Button>
                     <Button variant="ghost" size="sm">
                       <Download className="h-4 w-4" />
                     </Button>

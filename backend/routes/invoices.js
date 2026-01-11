@@ -7,40 +7,53 @@ import getNextSequence from '../utils/getNextSequence.js';
 
 const router = express.Router();
 
+/* ---------------- FORMAT RESPONSE ---------------- */
 const formatInvoice = (invoice) => {
   const customer = invoice.customer || {};
+
   return {
     id: invoice.legacy_id,
     invoice_number: invoice.invoice_number,
+
     customer_id: customer.legacy_id,
     customer_name: customer.name,
     customer_email: customer.email,
     customer_phone: customer.phone,
     customer_address: customer.address,
-    invoice_date: invoice.invoice_date ? new Date(invoice.invoice_date).toISOString().split('T')[0] : null,
-    due_date: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : null,
+
+    invoice_date: invoice.invoice_date
+      ? new Date(invoice.invoice_date).toISOString().split('T')[0]
+      : null,
+
+    due_date: invoice.due_date
+      ? new Date(invoice.due_date).toISOString().split('T')[0]
+      : null,
+
     subtotal: invoice.subtotal,
     tax_amount: invoice.tax_amount,
     total_amount: invoice.total_amount,
     status: invoice.status,
     notes: invoice.notes,
+
     item_count: Array.isArray(invoice.items) ? invoice.items.length : 0,
+
     items: Array.isArray(invoice.items)
       ? invoice.items.map((item) => ({
-          item_id: item.item?.legacy_id || item.item_id,
-          item_name: item.item?.name,
-          sku: item.item?.sku,
+          item_id: item.item_id,
+          item_name: item.item_name,
+          sku: item.sku,
           quantity: item.quantity,
           unit_price: item.unit_price,
           total_price: item.total_price,
         }))
       : [],
+
     created_at: invoice.created_at,
     updated_at: invoice.updated_at,
   };
 };
 
-// Get all invoices
+/* ---------------- GET ALL INVOICES ---------------- */
 router.get('/', async (_req, res) => {
   try {
     const invoices = await Invoice.find()
@@ -55,7 +68,7 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// Get invoice by ID with items
+/* ---------------- GET INVOICE BY ID ---------------- */
 router.get('/:id', async (req, res) => {
   try {
     const numericId = Number(req.params.id);
@@ -79,17 +92,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new invoice
+/* ---------------- CREATE INVOICE ---------------- */
 router.post(
   '/',
   [
-    body('customer_id').isInt({ min: 1 }).withMessage('Valid customer ID is required'),
-    body('invoice_date').isISO8601().withMessage('Valid invoice date is required'),
-    body('due_date').optional().isISO8601().withMessage('Valid due date is required'),
-    body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
-    body('items.*.item_id').isInt({ min: 1 }).withMessage('Valid item ID is required for each item'),
-    body('items.*.quantity').isInt({ min: 1 }).withMessage('Valid quantity is required for each item'),
-    body('tax_rate').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Tax rate must be a valid decimal'),
+    body('customer_id').isInt({ min: 1 }),
+    body('invoice_date').isISO8601(),
+    body('due_date').optional().isISO8601(),
+    body('items').isArray({ min: 1 }),
+    body('items.*.item_id').isInt({ min: 1 }),
+    body('items.*.quantity').isInt({ min: 1 }),
+    body('tax_rate').optional().isDecimal({ decimal_digits: '0,2' }),
   ],
   async (req, res) => {
     try {
@@ -105,32 +118,29 @@ router.post(
         return res.status(400).json({ success: false, error: 'Customer not found' });
       }
 
-      const itemIds = items.map((item) => Number(item.item_id));
+      const itemIds = items.map((i) => Number(i.item_id));
       const itemDocs = await Item.find({ legacy_id: { $in: itemIds } });
+
       if (itemDocs.length !== itemIds.length) {
-        const foundIds = itemDocs.map((doc) => doc.legacy_id);
-        const missingIds = itemIds.filter((id) => !foundIds.includes(id));
-        return res.status(400).json({
-          success: false,
-          error: `Item(s) not found: ${missingIds.join(', ')}`,
-        });
+        return res.status(400).json({ success: false, error: 'One or more items not found' });
       }
 
       const itemMap = new Map(itemDocs.map((doc) => [doc.legacy_id, doc]));
+
       let subtotal = 0;
       const processedItems = [];
 
-      for (const item of items) {
-        const legacyId = Number(item.item_id);
-        const itemDoc = itemMap.get(legacyId);
-        const quantity = Number(item.quantity);
+      for (const i of items) {
+        const itemDoc = itemMap.get(Number(i.item_id));
+        const quantity = Number(i.quantity);
         const unitPrice = Number(itemDoc.price);
         const totalPrice = unitPrice * quantity;
 
         subtotal += totalPrice;
+
         processedItems.push({
           item: itemDoc._id,
-          item_id: legacyId,
+          item_id: itemDoc.legacy_id,
           item_name: itemDoc.name,
           sku: itemDoc.sku,
           quantity,
@@ -155,12 +165,8 @@ router.post(
         tax_amount: taxAmount,
         total_amount: totalAmount,
         notes,
-        items: processedItems.map((item) => ({
-          item: item.item,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.total_price,
-        })),
+        status: 'Draft',
+        items: processedItems, // ✅ IMPORTANT FIX
       });
 
       const populated = await Invoice.findById(invoice._id)
@@ -180,73 +186,48 @@ router.post(
   }
 );
 
-// Update invoice
-router.put(
-  '/:id',
-  [
-    body('customer_id').optional().isInt({ min: 1 }).withMessage('Valid customer ID is required'),
-    body('invoice_date').optional().isISO8601().withMessage('Valid invoice date is required'),
-    body('due_date').optional().isISO8601().withMessage('Valid due date is required'),
-    body('status').optional().isIn(['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled']).withMessage('Invalid status'),
-    body('tax_rate').optional().isDecimal({ decimal_digits: '0,2' }).withMessage('Tax rate must be a valid decimal'),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
-      }
-
-      const numericId = Number(req.params.id);
-      if (Number.isNaN(numericId)) {
-        return res.status(400).json({ success: false, error: 'Invalid invoice ID' });
-      }
-
-      const updates = {};
-      const { customer_id, invoice_date, due_date, status, notes } = req.body;
-
-      if (customer_id !== undefined) {
-        const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
-        if (!customer) {
-          return res.status(400).json({ success: false, error: 'Customer not found' });
-        }
-        updates.customer = customer._id;
-      }
-
-      if (invoice_date !== undefined) updates.invoice_date = new Date(invoice_date);
-      if (due_date !== undefined) updates.due_date = new Date(due_date);
-      if (status !== undefined) updates.status = status;
-      if (notes !== undefined) updates.notes = notes;
-
-      if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ success: false, error: 'No fields to update' });
-      }
-
-      const invoice = await Invoice.findOneAndUpdate({ legacy_id: numericId }, updates, {
-        new: true,
-        runValidators: true,
-      })
-        .populate('customer', 'name email legacy_id')
-        .populate('items.item', 'name sku legacy_id')
-        .lean();
-
-      if (!invoice) {
-        return res.status(404).json({ success: false, error: 'Invoice not found' });
-      }
-
-      res.json({
-        success: true,
-        message: 'Invoice updated successfully',
-        data: formatInvoice(invoice),
-      });
-    } catch (error) {
-      console.error('Error updating invoice:', error);
-      res.status(500).json({ success: false, error: 'Failed to update invoice' });
+/* ---------------- UPDATE INVOICE ---------------- */
+router.put('/:id', async (req, res) => {
+  try {
+    const numericId = Number(req.params.id);
+    if (Number.isNaN(numericId)) {
+      return res.status(400).json({ success: false, error: 'Invalid invoice ID' });
     }
-  }
-);
 
-// Delete invoice
+    const updates = {};
+    const { customer_id, invoice_date, due_date, status, notes } = req.body;
+
+    if (customer_id) {
+      const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
+      if (!customer) return res.status(400).json({ success: false, error: 'Customer not found' });
+      updates.customer = customer._id;
+    }
+
+    if (invoice_date) updates.invoice_date = new Date(invoice_date);
+    if (due_date) updates.due_date = new Date(due_date);
+    if (status) updates.status = status;
+    if (notes !== undefined) updates.notes = notes;
+
+    const invoice = await Invoice.findOneAndUpdate(
+      { legacy_id: numericId },
+      updates,
+      { new: true }
+    )
+      .populate('customer', 'name email legacy_id')
+      .lean();
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    res.json({ success: true, data: formatInvoice(invoice) });
+  } catch (error) {
+    console.error('Error updating invoice:', error);
+    res.status(500).json({ success: false, error: 'Failed to update invoice' });
+  }
+});
+
+/* ---------------- DELETE INVOICE ---------------- */
 router.delete('/:id', async (req, res) => {
   try {
     const numericId = Number(req.params.id);

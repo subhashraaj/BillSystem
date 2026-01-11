@@ -2,11 +2,28 @@ import { Schema, model, Types } from 'mongoose';
 
 const invoiceItemSchema = new Schema(
   {
+    // Mongo reference (optional populate)
     item: {
       type: Types.ObjectId,
       ref: 'Item',
       required: true,
     },
+
+    // Snapshot fields (stored permanently)
+    item_id: {
+      type: Number,
+      required: true,
+    },
+    item_name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    sku: {
+      type: String,
+      trim: true,
+    },
+
     quantity: {
       type: Number,
       required: true,
@@ -86,29 +103,4 @@ const invoiceSchema = new Schema(
   }
 );
 
-invoiceSchema.set('toJSON', {
-  virtuals: true,
-  versionKey: false,
-  transform: (_, ret) => {
-    ret.id = ret.legacy_id;
-    delete ret.legacy_id;
-    if (ret.customer && ret.customer.legacy_id) {
-      ret.customer_id = ret.customer.legacy_id;
-    }
-    if (Array.isArray(ret.items)) {
-      ret.items = ret.items.map((item) => {
-        if (item?.item && item.item.legacy_id) {
-          return {
-            ...item,
-            item_id: item.item.legacy_id,
-          };
-        }
-        return item;
-      });
-    }
-    delete ret._id;
-  },
-});
-
 export default model('Invoice', invoiceSchema);
-
