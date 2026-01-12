@@ -40,8 +40,8 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
-import {InvoiceViewDialog} from "@/components/forms/InvoiceViewDialog";
-import { handleDownloadPDF } from "@/components/forms/DownloadPDF";
+import { InvoiceViewDialog } from "@/components/forms/InvoiceViewDialog";
+import { generateInvoicePDF } from "@/components/functionalities/DownloadPDF";
 
 
 
@@ -452,7 +452,7 @@ export default function Invoices() {
                 <TableHead>Date</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -466,9 +466,16 @@ export default function Invoices() {
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteInvoice({ id: invoice.id, invoice_number: invoice.invoice_number })}>Delete</Button>
                     <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice)}>View</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDownloadPDF(invoice.id.toString())}>
-                      <Download className="h-4 w-4" />
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => generateInvoicePDF(invoice.id.toString())}> <Download className="h-4 w-4" /></Button>
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => generateInvoicePDF(invoice.id.toString(), "ORIGINAL")}>
+                        Original
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => generateInvoicePDF(invoice.id.toString(), "DUPLICATE")}>
+                        Duplicate
+                      </Button>
+                    </div>
+
                   </TableCell>
                 </TableRow>
               ))}
