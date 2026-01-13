@@ -43,7 +43,7 @@ const formatInvoice = (invoice) => {
           item_name: item.item_name,
           sku: item.sku,
           quantity: item.quantity,
-          unit_price: item.unit_price,
+          unit_price: item.unit_price, // invoice rate
           total_price: item.total_price,
         }))
       : [],
@@ -99,9 +99,14 @@ router.post(
     body('customer_id').isInt({ min: 1 }),
     body('invoice_date').isISO8601(),
     body('due_date').optional().isISO8601(),
+
     body('items').isArray({ min: 1 }),
     body('items.*.item_id').isInt({ min: 1 }),
     body('items.*.quantity').isInt({ min: 1 }),
+    body('items.*.temp_rate')
+      .optional()
+      .isDecimal({ decimal_digits: '0,2' }),
+
     body('tax_rate').optional().isDecimal({ decimal_digits: '0,2' }),
   ],
   async (req, res) => {
@@ -111,13 +116,22 @@ router.post(
         return res.status(400).json({ success: false, errors: errors.array() });
       }
 
-      const { customer_id, invoice_date, due_date, items, tax_rate = 0, notes } = req.body;
+      const {
+        customer_id,
+        invoice_date,
+        due_date,
+        items,
+        tax_rate = 0,
+        notes,
+      } = req.body;
 
+      /* -------- Validate customer -------- */
       const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
       if (!customer) {
         return res.status(400).json({ success: false, error: 'Customer not found' });
       }
 
+      /* -------- Fetch items -------- */
       const itemIds = items.map((i) => Number(i.item_id));
       const itemDocs = await Item.find({ legacy_id: { $in: itemIds } });
 
@@ -127,15 +141,28 @@ router.post(
 
       const itemMap = new Map(itemDocs.map((doc) => [doc.legacy_id, doc]));
 
+      /* -------- Process invoice items -------- */
       let subtotal = 0;
       const processedItems = [];
 
       for (const i of items) {
         const itemDoc = itemMap.get(Number(i.item_id));
         const quantity = Number(i.quantity);
-        const unitPrice = Number(itemDoc.price);
-        const totalPrice = unitPrice * quantity;
 
+        // ✅ TEMP RATE LOGIC
+        const unitPrice =
+          i.temp_rate !== undefined && i.temp_rate !== null
+            ? Number(i.temp_rate)
+            : Number(itemDoc.price);
+
+        if (unitPrice <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid rate for item ${itemDoc.name}`,
+          });
+        }
+
+        const totalPrice = unitPrice * quantity;
         subtotal += totalPrice;
 
         processedItems.push({
@@ -144,17 +171,20 @@ router.post(
           item_name: itemDoc.name,
           sku: itemDoc.sku,
           quantity,
-          unit_price: unitPrice,
+          unit_price: unitPrice, // invoice-specific rate
           total_price: totalPrice,
         });
       }
 
+      /* -------- Tax & totals -------- */
       const taxAmount = subtotal * (Number(tax_rate) / 100);
       const totalAmount = subtotal + taxAmount;
 
+      /* -------- Invoice numbering -------- */
       const legacyId = await getNextSequence('invoices');
       const invoiceNumber = `ARR-${String(legacyId).padStart(4, '0')}`;
 
+      /* -------- Create invoice -------- */
       const invoice = await Invoice.create({
         legacy_id: legacyId,
         invoice_number: invoiceNumber,
@@ -166,7 +196,7 @@ router.post(
         total_amount: totalAmount,
         notes,
         status: 'Draft',
-        items: processedItems, // ✅ IMPORTANT FIX
+        items: processedItems,
       });
 
       const populated = await Invoice.findById(invoice._id)
@@ -199,7 +229,9 @@ router.put('/:id', async (req, res) => {
 
     if (customer_id) {
       const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
-      if (!customer) return res.status(400).json({ success: false, error: 'Customer not found' });
+      if (!customer) {
+        return res.status(400).json({ success: false, error: 'Customer not found' });
+      }
       updates.customer = customer._id;
     }
 
