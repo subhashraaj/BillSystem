@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Download} from "lucide-react";
+import { Plus, Search, Download } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,23 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 
 import { useInvoices, useCreateInvoice, useCustomers, useItems } from "@/hooks/useAPI";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
@@ -51,20 +68,31 @@ export default function Invoices() {
   const customers = customersData?.data || [];
   const items = itemsData?.data || [];
 
-  const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  // city
+  const [openCity, setOpenCity] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [cityValue, setCityValue] = useState("");
+
+  // Customer
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
+  const [openCustomer, setOpenCustomer] = useState(false);
+  const [customerValue, setCustomerValue] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const [showCustomerList, setShowCustomerList] = useState(false);
 
+  // Items
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [invoiceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [dueDate, setDueDate] = useState("");
 
+  // Invoice
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isDeleteInvoiceOpen, setIsDeleteInvoiceOpen] = useState(false);
-
   const [isViewInvoiceOpen, setIsViewInvoiceOpen] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<any>(null);
+  const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  const [invoiceDate] = useState(new Date().toISOString().split("T")[0]);
+
+  const [dueDate, setDueDate] = useState("");
+
 
   /* ------------------ ITEM HANDLERS ------------------ */
 
@@ -103,7 +131,7 @@ export default function Invoices() {
     );
   };
 
-  const handleDeleteInvoice = (invoice:{id: number, invoice_number: string}) => {
+  const handleDeleteInvoice = (invoice: { id: number, invoice_number: string }) => {
     setSelectedInvoice(invoice)
     setIsDeleteInvoiceOpen(true)
 
@@ -149,7 +177,28 @@ export default function Invoices() {
     setSelectedItems([]);
   };
 
-console.log()
+  const selectedCustomerName =
+    customers.find((c: any) => c.id.toString() === selectedCustomer)?.name;
+
+
+  const cities = Array.from(
+    new Set(
+      customers
+        .map((c: any) => c.city?.trim())
+        .filter(Boolean)
+    )
+  ).sort();
+
+  const filteredCustomers = selectedCity
+    ? customers.filter(
+      (c: any) =>
+        c.city &&
+        c.city.trim().toLowerCase() === selectedCity.toLowerCase()
+    )
+    : [];
+
+
+  console.log()
 
   /* ------------------ RENDER ------------------ */
 
@@ -161,7 +210,7 @@ console.log()
           <p className="text-muted-foreground">Create and manage invoices</p>
         </div>
         <Button onClick={() => setIsCreateInvoiceOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> 
+          <Plus className="h-4 w-4 mr-2" />
           Create Invoice
         </Button>
       </div>
@@ -176,46 +225,129 @@ console.log()
           </DialogHeader>
 
           {/* Balance Block */}
-          
 
+
+          {/* CITY */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">City</label>
+
+            <Popover open={openCity} onOpenChange={setOpenCity}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {cityValue || "Select city..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="w-[300px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search city..." />
+
+                  <CommandList>
+                    <CommandEmpty>No city found.</CommandEmpty>
+
+                    <CommandGroup>
+                      {cities.map((city) => (
+                        <CommandItem
+                          key={city}
+                          value={city}
+                          onSelect={(value) => {
+                            setCityValue(value);
+                            setSelectedCity(value);
+
+                            // reset customer when city changes
+                            setCustomerValue("");
+                            setSelectedCustomer(null);
+
+                            setOpenCity(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              cityValue === city ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {city}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
 
           {/* CUSTOMER */}
-          <div className="space-y-2 relative">
+          <div className="space-y-2">
             <label className="text-sm font-medium">Customer</label>
-            <Input
-              value={customerQuery}
-              onChange={(e) => {
-                setSelectedCustomer(null)
-                setCustomerQuery(e.target.value);
-                setShowCustomerList(true);
-              }}
-              onBlur={() => setTimeout(() => setShowCustomerList(false), 150)}
-            />
-            {showCustomerList && customerQuery && (
-              <div className="absolute z-10 w-full border bg-background rounded-md">
-                {customers
-                  .filter((c: any) =>
-                    (c?.name?? "")
-                      .toLowerCase()
-                      .includes(customerQuery.toLowerCase())
-                  )
-                  .map((c: any) => (
-                    <div
-                      key={c.id}
-                      className="px-3 py-2 hover:bg-muted cursor-pointer"
-                      onMouseDown={() => {
-                        setSelectedCustomer(c.id.toString());
-                        setCustomerQuery(c.name);
-                        setShowCustomerList(false);
-                      }}
-                    >
-                      {c.name}
-                
-                    </div>
-                  ))}
-              </div>
-            )}
+
+            <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                  disabled={!selectedCity}
+                >
+                  {customerValue || "Select customer..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="w-[300px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search customer..." />
+
+                  <CommandList>
+                    <CommandEmpty>
+                      {selectedCity
+                        ? "No customers in this city."
+                        : "Select a city first."}
+                    </CommandEmpty>
+
+                    <CommandGroup>
+                      {filteredCustomers.map((customer: any) => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.name}
+                          onSelect={(value) => {
+                            setCustomerValue(value);
+                            setSelectedCustomer(customer.id.toString());
+                            setOpenCustomer(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              customerValue === customer.name
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span>{customer.name}</span>
+                            <span className="text-xs">
+                              {customer.mobile_number || customer.phone}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
+
+
+
+
+
 
           {/* ITEMS */}
           <Select onValueChange={handleAddItem}>

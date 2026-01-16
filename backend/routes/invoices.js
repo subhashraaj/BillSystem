@@ -4,6 +4,8 @@ import Invoice from '../models/Invoice.js';
 import Customer from '../models/Customer.js';
 import Item from '../models/Item.js';
 import getNextSequence from '../utils/getNextSequence.js';
+import mongoose from 'mongoose';
+
 
 const router = express.Router();
 
@@ -39,13 +41,13 @@ const formatInvoice = (invoice) => {
 
     items: Array.isArray(invoice.items)
       ? invoice.items.map((item) => ({
-          item_id: item.item_id,
-          item_name: item.item_name,
-          sku: item.sku,
-          quantity: item.quantity,
-          unit_price: item.unit_price, // invoice rate
-          total_price: item.total_price,
-        }))
+        item_id: item.item_id,
+        item_name: item.item_name,
+        sku: item.sku,
+        quantity: item.quantity,
+        unit_price: item.unit_price, // invoice rate
+        total_price: item.total_price,
+      }))
       : [],
 
     created_at: invoice.created_at,
@@ -184,20 +186,57 @@ router.post(
       const legacyId = await getNextSequence('invoices');
       const invoiceNumber = `ARR-${String(legacyId).padStart(4, '0')}`;
 
-      /* -------- Create invoice -------- */
-      const invoice = await Invoice.create({
-        legacy_id: legacyId,
-        invoice_number: invoiceNumber,
-        customer: customer._id,
-        invoice_date: new Date(invoice_date),
-        due_date: due_date ? new Date(due_date) : undefined,
-        subtotal,
-        tax_amount: taxAmount,
-        total_amount: totalAmount,
-        notes,
-        status: 'Draft',
-        items: processedItems,
-      });
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        const [invoice] = await Invoice.create(
+          [{
+            legacy_id: legacyId,
+            invoice_number: invoiceNumber,
+            customer: customer._id,
+            invoice_date: new Date(invoice_date),
+            due_date: due_date ? new Date(due_date) : undefined,
+            subtotal,
+            tax_amount: taxAmount,
+            total_amount: totalAmount,
+            notes,
+            status: 'Draft',
+            items: processedItems,
+          }],
+          { session }
+        );
+
+        await Customer.findByIdAndUpdate(
+          customer._id,
+          { $inc: { balance: totalAmount } },
+          { session }
+        );
+      
+        await session.commitTransaction();
+        session.endSession();
+      
+        const populated = await Invoice.findById(invoice._id)
+          .populate('customer', 'name email legacy_id')
+          .populate('items.item', 'name sku legacy_id')
+          .lean();
+      
+        return res.status(201).json({
+          success: true,
+          message: 'Invoice created successfully',
+          data: formatInvoice(populated),
+        });
+      
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+      
+        console.error('Error creating invoice:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create invoice',
+        });
+      }
 
       const populated = await Invoice.findById(invoice._id)
         .populate('customer', 'name email legacy_id')

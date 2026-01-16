@@ -16,6 +16,25 @@ const normalizeOptional = (value) => {
   return value;
 };
 
+router.get('/', async (req, res) => {
+  try {
+    const { city } = req.query;
+
+    const filter = {};
+    if (city) {
+      filter.city = city;
+    }
+
+    const customers = await Customer.find(filter).sort({ created_at: -1 });
+
+    res.json({ success: true, data: customers });
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch customers' });
+  }
+});
+
+
 // Get all customers
 router.get('/', async (_req, res) => {
   try {
