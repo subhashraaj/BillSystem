@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Download } from "lucide-react";
+import { Plus, Search, Download} from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -149,6 +149,8 @@ export default function Invoices() {
     setSelectedItems([]);
   };
 
+console.log()
+
   /* ------------------ RENDER ------------------ */
 
   return (
@@ -159,7 +161,8 @@ export default function Invoices() {
           <p className="text-muted-foreground">Create and manage invoices</p>
         </div>
         <Button onClick={() => setIsCreateInvoiceOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Create Invoice
+          <Plus className="h-4 w-4 mr-2" /> 
+          Create Invoice
         </Button>
       </div>
 
@@ -172,12 +175,17 @@ export default function Invoices() {
             <DialogDescription>Temporary rate will not change item price</DialogDescription>
           </DialogHeader>
 
+          {/* Balance Block */}
+          
+
+
           {/* CUSTOMER */}
           <div className="space-y-2 relative">
             <label className="text-sm font-medium">Customer</label>
             <Input
               value={customerQuery}
               onChange={(e) => {
+                setSelectedCustomer(null)
                 setCustomerQuery(e.target.value);
                 setShowCustomerList(true);
               }}
@@ -187,7 +195,9 @@ export default function Invoices() {
               <div className="absolute z-10 w-full border bg-background rounded-md">
                 {customers
                   .filter((c: any) =>
-                    c.name.toLowerCase().includes(customerQuery.toLowerCase())
+                    (c?.name?? "")
+                      .toLowerCase()
+                      .includes(customerQuery.toLowerCase())
                   )
                   .map((c: any) => (
                     <div
@@ -200,6 +210,7 @@ export default function Invoices() {
                       }}
                     >
                       {c.name}
+                
                     </div>
                   ))}
               </div>
@@ -213,7 +224,7 @@ export default function Invoices() {
             </SelectTrigger>
             <SelectContent>
               {items.map((item: any) => (
-                <SelectItem key={item.id} value={item.id.toString()}>
+                <SelectItem key={item.id} value={item.id.toString()} disabled={selectedItems.some((i) => i.id === item.id)}>
                   {item.name} — ₹{item.price}
                 </SelectItem>
               ))}
@@ -271,7 +282,9 @@ export default function Invoices() {
             <Button variant="outline" onClick={() => setIsCreateInvoiceOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateInvoice}>Create Invoice</Button>
+            <Button onClick={handleCreateInvoice} disabled={!selectedCustomer || selectedItems.length === 0}>
+              Create Invoice
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -352,7 +365,7 @@ export default function Invoices() {
 
       <InvoiceDeletePopUp
         open={isDeleteInvoiceOpen}
-        onOpenChange={setIsDeleteInvoiceOpen}
+        onOpenChange={handleDeleteInvoiceOpenChange}
         invoice={selectedInvoice}
       />
 
