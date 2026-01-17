@@ -40,6 +40,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { printInvoice } from "@/components/functionality/printInvoice";
+
+
 
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,7 +51,7 @@ import { cn } from "@/lib/utils";
 import { useInvoices, useCreateInvoice, useCustomers, useItems } from "@/hooks/useAPI";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
 import { InvoiceViewDialog } from "@/components/forms/InvoiceViewDialog";
-import { generateInvoicePDF } from "@/components/functionalities/DownloadPDF";
+
 
 type SelectedItem = {
   id: number;
@@ -196,6 +199,9 @@ export default function Invoices() {
         c.city.trim().toLowerCase() === selectedCity.toLowerCase()
     )
     : [];
+
+
+
 
 
   console.log()
@@ -452,41 +458,24 @@ export default function Invoices() {
                   <TableCell>{inv.item_count}</TableCell>
                   <TableCell>₹{inv.total_amount}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button size="sm" variant="ghost" onClick={() => generateInvoicePDF(inv.id)}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+
+                    <Button variant="ghost" size="sm"
                       onClick={() =>
                         handleDeleteInvoice({
                           id: inv.id,
                           invoice_number: inv.invoice_number,
                         })
                       }
-                    >
-                      Delete
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        generateInvoicePDF(inv.id.toString(), "ORIGINAL")
-                      }
-                    >
-                      Original
-                    </Button>
+                      >Delete</Button>
 
-                    {/* DUPLICATE PRINT */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        generateInvoicePDF(inv.id.toString(), "DUPLICATE")
-                      }
-                    >
-                      Duplicate
-                    </Button>
+                    <Button size="sm"variant="ghost"
+                      onClick={() => printInvoice(inv.id, "ORIGINAL")} 
+                    >Original</Button>
+
+                    <Button size="sm"variant="ghost"
+                      onClick={() => printInvoice(inv.id, "DUPLICATE")}
+                    > Duplicate</Button>
+
                   </TableCell>
                 </TableRow>
               ))}
