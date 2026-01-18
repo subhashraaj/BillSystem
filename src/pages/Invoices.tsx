@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, Download } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -42,14 +42,14 @@ import {
 } from "@/components/ui/popover";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print"
-import OriginalTemplate  from "@/components/functionality/print/original";
+import OriginalTemplate from "@/components/functionality/print/original";
 
 
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
-import { useInvoices, useCreateInvoice, useCustomers, useItems } from "@/hooks/useAPI";
+import { useInvoices, useCreateInvoice, useCustomers, useItems, useInvoiceById } from "@/hooks/useAPI";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
 import { InvoiceViewDialog } from "@/components/forms/InvoiceViewDialog";
 
@@ -100,6 +100,7 @@ export default function Invoices() {
 
 
   /* ------------------ ITEM HANDLERS ------------------ */
+
 
   const handleAddItem = (itemId: string) => {
     const item = items.find((i: any) => i.id.toString() === itemId);
@@ -175,7 +176,7 @@ export default function Invoices() {
         temp_rate: item.temp_rate,
       })),
     };
-    
+
 
     await createInvoice(payload);
     setIsCreateInvoiceOpen(false);
@@ -207,9 +208,16 @@ export default function Invoices() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: "Original Invoice",
+    contentRef:printRef,
+    onAfterPrint: () => setInvoiceToPrint(null),
   });
+
+  // Trigger print automatically when invoiceToPrint changes
+  useEffect(() => {
+    if (invoiceToPrint) {
+      handlePrint();
+    }
+  }, [invoiceToPrint]);
 
 
 
@@ -482,14 +490,9 @@ export default function Invoices() {
                     >Delete</Button>
 
                     <Button size="sm" variant="ghost"
-                      onClick={() => {
-                        handlePrint()
-                        setInvoiceToPrint(inv)}
-                      }
+                      onClick={() => setInvoiceToPrint(inv)}
                     >Original</Button>
-                    <div style={{ display: "none" }}>
-                      <OriginalTemplate ref={printRef} invoice={invoiceToPrint} />
-                    </div>
+
 
                     {/* <Button size="sm" variant="ghost"
                         onClick={() => printInvoice(inv.id, "DUPLICATE")}
@@ -502,6 +505,15 @@ export default function Invoices() {
           </Table>
         </CardContent>
       </Card>
+
+      {invoiceToPrint && (
+        <div style={{ display: "none" }}>
+          <OriginalTemplate ref={printRef} invoice={invoiceToPrint} />
+        </div>
+
+      )}
+
+
 
       <InvoiceDeletePopUp
         open={isDeleteInvoiceOpen}

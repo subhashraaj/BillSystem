@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customerAPI, itemAPI, rawMaterialAPI, manufacturingAPI, invoiceAPI, paymentAPI } from '../services/api';
 import { toast } from 'sonner';
+import  axios from "axios"
 
-// Customer hooks
 export const useCustomers = () => {
   return useQuery({
     queryKey: ['customers'],
@@ -108,6 +108,13 @@ export const useUpdateItem = () => {
     },
   });
 };
+
+export const useInvoiceById = () => {
+  return useMutation({
+    mutationFn: (id: number) => invoiceAPI.getById(id),
+  });
+};
+
 
 export const useDeleteItem = () => {
   const queryClient = useQueryClient();

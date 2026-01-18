@@ -16,7 +16,7 @@ const formatInvoice = (invoice) => {
   return {
     id: invoice.legacy_id,
     invoice_number: invoice.invoice_number,
-
+    customer_city: customer.city,
     customer_id: customer.legacy_id,
     customer_name: customer.name,
     customer_email: customer.email,
@@ -59,7 +59,7 @@ const formatInvoice = (invoice) => {
 router.get('/', async (_req, res) => {
   try {
     const invoices = await Invoice.find()
-      .populate('customer', 'name email legacy_id')
+      .populate('customer', 'name email phone address city legacy_id')
       .sort({ invoice_date: -1 })
       .lean();
 
@@ -217,7 +217,7 @@ router.post(
         session.endSession();
       
         const populated = await Invoice.findById(invoice._id)
-          .populate('customer', 'name email legacy_id')
+          .populate('customer', 'name email phone address city legacy_id')
           .populate('items.item', 'name sku legacy_id')
           .lean();
       

@@ -12,6 +12,7 @@ type OriginalTemplateProps = {
         invoice_number: string;
         invoice_date: string;
         customer_name: string;
+        customer_city?: string;
         items: InvoiceItem[];
         total_amount: number;
     };
@@ -78,12 +79,15 @@ const styles: Record<string, CSSProperties> = {
     },
     cell: {
         border: "1px solid black"
+    },
+    table_text: {
+        textAlign: "center"
     }
 };
 
 const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
     ({ invoice }, ref) => {
-        console.log(invoice?.customer_name)
+        console.log(invoice)
         return (
             <div ref={ref} style={styles.invoice}>
                 <h2 style={styles.title}>உ</h2>
@@ -115,6 +119,8 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                 <div style={styles.billTable}>
                     <div>
                         <strong>To:</strong> {invoice?.customer_name}<br />
+                        <strong>City:</strong> {invoice?.customer_city}<br />
+                        
                     </div>
                     <div>
                         <strong>Bill No:</strong> {invoice?.invoice_number} <br />
@@ -134,13 +140,13 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                         </tr>
                     </thead>
                     <tbody>
-                        {invoice?.items?.map((item: any) => (
+                        {invoice?.items?.map((item: any, index) => (
                             <tr key={item.item_id}>
-                                <td>{item.item_id}</td>
-                                <td>{item.item_name}</td>
-                                <td>{item.quantity}</td>
-                                <td>₹{item.unit_price}</td>
-                                <td>₹{item.total_price.toFixed(2)}</td>
+                                <td style={styles.table_text}>{index + 1}</td>
+                                <td style={styles.table_text}>{item.item_name ?? "-"}</td>
+                                <td style={styles.table_text}>{item.quantity ?? 0}</td>
+                                <td style={styles.table_text}>₹{item.unit_price ?? 0}</td>
+                                <td style={styles.table_text}>₹{item.total_price ?? 0}</td>
                             </tr>
                         ))}
 
@@ -149,7 +155,7 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                                 <strong>Total</strong>
                             </td>
                             <td style={styles.cell}>
-                                <strong>₹{invoice?.total_amount.toFixed(2)}</strong>
+                                <strong>₹{invoice?.total_amount ?? 0}</strong>
                             </td>
                         </tr>
                     </tbody>
@@ -170,7 +176,7 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
 
                 {/* Signature */}
                 <div style={styles.sign}>
-                    For <strong>Thirumani Traders</strong><br /><br />
+                    <strong>Thirumani Traders</strong><br /><br />
                     Authorised Sign
                 </div>
             </div>
