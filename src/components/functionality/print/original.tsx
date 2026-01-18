@@ -22,7 +22,6 @@ const styles: Record<string, CSSProperties> = {
     invoice: {
         maxWidth: "900px",
         margin: "auto",
-        border: "1px solid #000",
         padding: "25px",
         fontFamily: "Arial, sans-serif",
         fontSize: "14px",
@@ -32,10 +31,17 @@ const styles: Record<string, CSSProperties> = {
         textAlign: "center",
         marginBottom: "5px",
     },
+    header: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+
+    },
     row: {
         display: "flex",
         justifyContent: "space-between",
         marginBottom: "6px",
+        marginTop: "10px"
     },
     box: {
         border: "1px solid #000",
@@ -63,9 +69,9 @@ const styles: Record<string, CSSProperties> = {
 
     },
     image: {
-        marginTop: "10px",
-        height: "75px",
-        width: "75px",
+        marginRight: "15px",
+        height: "100px",
+        width: "100px",
 
     },
     line: {
@@ -82,6 +88,21 @@ const styles: Record<string, CSSProperties> = {
     },
     table_text: {
         textAlign: "center"
+    },
+    original: {
+        width: "4rem",
+        height: "2rem",
+        backgroundColor: "black",
+        color: "white",
+        padding: "5px",
+        borderRadius: "4px",
+    },
+    contact:{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        position: "relative",
+        
     }
 };
 
@@ -90,28 +111,25 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
         console.log(invoice)
         return (
             <div ref={ref} style={styles.invoice}>
-                <h2 style={styles.title}>உ</h2>
+                <h2 style={styles.title}><strong>உ</strong></h2>
                 <h2 style={styles.title}>அருள்மிகு ஐந்து விட்டு சுவாமி துணை</h2>
-                <h2 style={styles.title}>Original Invoice</h2>
+                <h2 style={styles.title}>Thirumani Traders</h2>
 
+                <div style={styles.header} >
+                    <p style={styles.original} ><strong>Original</strong></p>
+                    <h2 style={styles.title}>Arrow Appalam</h2>
+                    <p>{invoice?.invoice_date}</p>
+
+                </div>
                 {/* Top GST / Contact */}
                 <div style={styles.row}>
                     {/* Company Details */}
                     <div>
-                        <strong>Thirumani Traders</strong><br />
-                        61, Thulaisiram Street,Meenakshi Nagar,<br />
-                        Villapuram,Madurai – 625012,Tamil Nadu.<br />
-                        Email: thirumanitradersarrow@gmail.com<br />
-                        Contact: 9443929822
-
+                        <p><strong>GST:</strong> 123456789012345</p>
+                        <p><strong>FSSAI:</strong> 5432109876543210</p>
+                        <p><strong>HSN:</strong> 12345678</p>
                     </div>
-                    <div>
-                        <p><strong>GST: 123456789012345</strong></p>
-                        <p><strong>FSSAI: 5432109876543210</strong></p>
-                        <p><strong>HSN: 12345678</strong></p>
-                        <img style={styles.image} alt="omm image" src="https://media.istockphoto.com/id/1462596965/vector/hindu-religion-om-symbol-with-vel-in-tamil-language.jpg?s=612x612&w=0&k=20&c=8alWUjyZQqwwxalI5ubFZPs4fsodyurCdS85vaqAl70=" />
-                    </div>
-
+                    <img style={styles.image} alt="omm image" src="https://media.istockphoto.com/id/1462596965/vector/hindu-religion-om-symbol-with-vel-in-tamil-language.jpg?s=612x612&w=0&k=20&c=8alWUjyZQqwwxalI5ubFZPs4fsodyurCdS85vaqAl70=" />
                 </div>
                 <div style={styles.line}></div>
 
@@ -120,11 +138,11 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                     <div>
                         <strong>To:</strong> {invoice?.customer_name}<br />
                         <strong>City:</strong> {invoice?.customer_city}<br />
-                        
+
                     </div>
                     <div>
                         <strong>Bill No:</strong> {invoice?.invoice_number} <br />
-                        <strong>Date:</strong> {invoice?.invoice_date}
+
                     </div>
                 </div>
 
@@ -164,20 +182,30 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
 
                 {/* Footer */}
                 <div style={styles.footer}>
+
                     <div>
                         <strong>Bank Details</strong><br />
                         1. SBI<br />
                         2. Indian Bank
                     </div>
                     <div>
-                        <strong>Gpay No:</strong>
+                        <strong>Thirumani Traders</strong><br />
+                        61, Thulaisiram Street,<br />
+                        Meenakshi Nagar, Villapuram,<br />
+                        Madurai – 625012,Tamil Nadu.
                     </div>
+
                 </div>
 
+
                 {/* Signature */}
-                <div style={styles.sign}>
-                    <strong>Thirumani Traders</strong><br /><br />
-                    Authorised Sign
+                <div style={styles.contact}>
+                    Email: thirumanitradersarrow@gmail.com<br />
+                    Contact: 9443929822
+                    <div style={styles.sign}>
+                        <strong>Thirumani Traders</strong><br /><br />
+                        Authorised Sign
+                    </div>
                 </div>
             </div>
         );
