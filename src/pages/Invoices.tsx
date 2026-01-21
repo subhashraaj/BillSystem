@@ -43,6 +43,7 @@ import {
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print"
 import OriginalTemplate from "@/components/functionality/print/original";
+import DuplicateTemplate from "@/components/functionality/print/dulicate";
 
 
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -95,6 +96,7 @@ export default function Invoices() {
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
   const [invoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [invoiceToPrint, setInvoiceToPrint] = useState<any>(null);
+  const [duplicateInvoiceToPrint, setDuplicateInvoiceToPrint] = useState<any>(null)
 
   const [dueDate, setDueDate] = useState("");
 
@@ -204,11 +206,12 @@ export default function Invoices() {
     )
     : customers;
 
+  // Original Invoice print
 
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
-    contentRef:printRef,
+    contentRef: printRef,
     onAfterPrint: () => setInvoiceToPrint(null),
   });
 
@@ -218,6 +221,22 @@ export default function Invoices() {
       handlePrint();
     }
   }, [invoiceToPrint]);
+
+  // Duplicate Invoice
+
+  const duplicatePrintRef = useRef<HTMLDivElement>(null);
+
+  const duplicateHandlePrint = useReactToPrint({
+    contentRef: duplicatePrintRef,
+    onAfterPrint: () => setDuplicateInvoiceToPrint(null),
+  });
+
+  // Trigger print automatically when invoiceToPrint changes
+  useEffect(() => {
+    if (duplicateInvoiceToPrint) {
+      duplicateHandlePrint();
+    }
+  }, [duplicateInvoiceToPrint]);
 
 
 
@@ -494,9 +513,9 @@ export default function Invoices() {
                     >Original</Button>
 
 
-                    {/* <Button size="sm" variant="ghost"
-                        onClick={() => printInvoice(inv.id, "DUPLICATE")}
-                      > Duplicate</Button> */}
+                    <Button size="sm" variant="ghost"
+                      onClick={() => setDuplicateInvoiceToPrint(inv)}
+                    > Duplicate</Button>
 
                   </TableCell>
                 </TableRow>
@@ -506,11 +525,19 @@ export default function Invoices() {
         </CardContent>
       </Card>
 
+      {/* Original Print */}
+
       {invoiceToPrint && (
         <div style={{ display: "none" }}>
           <OriginalTemplate ref={printRef} invoice={invoiceToPrint} />
         </div>
+      )}
 
+      {/* Duplicate Print */}
+      {duplicateInvoiceToPrint && (
+        <div style={{ display: "none" }}>
+          <DuplicateTemplate ref={duplicatePrintRef} invoice={duplicateInvoiceToPrint} />
+        </div>
       )}
 
 

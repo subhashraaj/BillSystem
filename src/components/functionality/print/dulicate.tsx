@@ -7,7 +7,7 @@ type InvoiceItem = {
     temp_rate: number;
 };
 
-type OriginalTemplateProps = {
+type DuplicateTemplateProps = {
     invoice?: {
         invoice_number: string;
         invoice_date: string;
@@ -89,8 +89,8 @@ const styles: Record<string, CSSProperties> = {
     table_text: {
         textAlign: "center"
     },
-    original: {
-        width: "4rem",
+    duplicate: {
+        width: "4.5rem",
         height: "2rem",
         backgroundColor: "black",
         color: "white",
@@ -106,7 +106,7 @@ const styles: Record<string, CSSProperties> = {
     }
 };
 
-const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
+const DuplicateTemplate = forwardRef<HTMLDivElement, DuplicateTemplateProps>(
     ({ invoice }, ref) => {
         // console.log(invoice)
         return (
@@ -116,7 +116,7 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                 <h2 style={styles.title}>Thirumani Traders</h2>
 
                 <div style={styles.header} >
-                    <p style={styles.original} ><strong>Original</strong></p>
+                    <p style={styles.duplicate} ><strong>Duplicate</strong></p>
                     <h2 style={styles.title}>Arrow Appalam</h2>
                     <p>{invoice?.invoice_date}</p>
 
@@ -212,4 +212,4 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
     }
 );
 
-export default OriginalTemplate;
+export default DuplicateTemplate;
