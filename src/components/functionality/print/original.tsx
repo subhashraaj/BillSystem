@@ -13,6 +13,7 @@ type OriginalTemplateProps = {
         invoice_date: string;
         customer_name: string;
         customer_city?: string;
+        customer_phone?: string;
         items: InvoiceItem[];
         total_amount: number;
     };
@@ -138,7 +139,7 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                     <div>
                         <strong>To:</strong> {invoice?.customer_name}<br />
                         <strong>City:</strong> {invoice?.customer_city}<br />
-
+                        <strong>Phone:</strong> {invoice?.customer_phone ?? "-"}<br />
                     </div>
                     <div>
                         <strong>Bill No:</strong> {invoice?.invoice_number} <br />

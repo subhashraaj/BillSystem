@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, Download } from "lucide-react";
+import { Plus, Search, Download, Trash2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -141,6 +141,7 @@ export default function Invoices() {
 
   const handleDeleteInvoice = (invoice: { id: number, invoice_number: string }) => {
     setSelectedInvoice(invoice)
+
     setIsDeleteInvoiceOpen(true)
 
   }
@@ -150,6 +151,10 @@ export default function Invoices() {
     if (!open) {
       setSelectedInvoice(null);
     }
+  };
+
+  const handleRemoveItem = (id: number) => {
+    setSelectedItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   /* ------------------ TOTALS ------------------ */
@@ -211,8 +216,10 @@ export default function Invoices() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
+
     contentRef: printRef,
     onAfterPrint: () => setInvoiceToPrint(null),
+
   });
 
   // Trigger print automatically when invoiceToPrint changes
@@ -436,6 +443,16 @@ export default function Invoices() {
                   updateQuantity(item.id, Number(e.target.value))
                 }
               />
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleRemoveItem(item.id)}
+                className="text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+
 
               <p className="w-24 text-right font-semibold">
                 ₹{(item.temp_rate * item.quantity).toFixed(2)}

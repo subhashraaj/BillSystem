@@ -284,7 +284,7 @@ router.put('/:id', async (req, res) => {
       updates,
       { new: true }
     )
-      .populate('customer', 'name email legacy_id')
+      .populate('customer', 'name phone email legacy_id')
       .lean();
 
     if (!invoice) {
