@@ -18,10 +18,6 @@ const customerSchema = new Schema(
       trim: true,
       lowercase: true,
     },
-    phone: {
-      type: String,
-      trim: true,
-    },
     mobile_number: {
       type: String,
       trim: true,

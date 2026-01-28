@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { useInvoices, useCreateInvoice, useCustomers, useItems, useInvoiceById } from "@/hooks/useAPI";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
 import { InvoiceViewDialog } from "@/components/forms/InvoiceViewDialog";
+import Customers from "./Customers";
 
 
 type SelectedItem = {
@@ -186,6 +187,7 @@ export default function Invoices() {
 
 
     await createInvoice(payload);
+    // console.log(payload)
     setIsCreateInvoiceOpen(false);
     setSelectedCustomer(null);
     setSelectedItems([]);
@@ -224,6 +226,7 @@ export default function Invoices() {
 
   // Trigger print automatically when invoiceToPrint changes
   useEffect(() => {
+    // console.log(invoiceToPrint)
     if (invoiceToPrint) {
       handlePrint();
     }

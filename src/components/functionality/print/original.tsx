@@ -109,7 +109,6 @@ const styles: Record<string, CSSProperties> = {
 
 const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
     ({ invoice }, ref) => {
-        // console.log(invoice)
         return (
             <div ref={ref} style={styles.invoice}>
                 <h2 style={styles.title}><strong>உ</strong></h2>

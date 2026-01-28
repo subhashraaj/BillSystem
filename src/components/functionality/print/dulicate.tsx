@@ -13,6 +13,7 @@ type DuplicateTemplateProps = {
         invoice_date: string;
         customer_name: string;
         customer_city?: string;
+        customer_phone?: string;
         items: InvoiceItem[];
         total_amount: number;
     };
@@ -108,7 +109,6 @@ const styles: Record<string, CSSProperties> = {
 
 const DuplicateTemplate = forwardRef<HTMLDivElement, DuplicateTemplateProps>(
     ({ invoice }, ref) => {
-        // console.log(invoice)
         return (
             <div ref={ref} style={styles.invoice}>
                 <h2 style={styles.title}><strong>உ</strong></h2>
@@ -138,7 +138,7 @@ const DuplicateTemplate = forwardRef<HTMLDivElement, DuplicateTemplateProps>(
                     <div>
                         <strong>To:</strong> {invoice?.customer_name}<br />
                         <strong>City:</strong> {invoice?.customer_city}<br />
-
+                        <strong>Phone:</strong> {invoice?.customer_phone ?? "-"}<br />
                     </div>
                     <div>
                         <strong>Bill No:</strong> {invoice?.invoice_number} <br />

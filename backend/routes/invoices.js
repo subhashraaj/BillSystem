@@ -9,6 +9,8 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+
+
 /* ---------------- FORMAT RESPONSE ---------------- */
 const formatInvoice = (invoice) => {
   const customer = invoice.customer || {};
@@ -20,7 +22,7 @@ const formatInvoice = (invoice) => {
     customer_id: customer.legacy_id,
     customer_name: customer.name,
     customer_email: customer.email,
-    customer_phone: customer.phone,
+    customer_phone: customer.mobile_number,
     customer_address: customer.address,
 
     invoice_date: invoice.invoice_date
@@ -55,11 +57,15 @@ const formatInvoice = (invoice) => {
   };
 };
 
+
+
+
 /* ---------------- GET ALL INVOICES ---------------- */
 router.get('/', async (_req, res) => {
+  
   try {
     const invoices = await Invoice.find()
-      .populate('customer', 'name email phone address city legacy_id')
+      .populate('customer', 'name email mobile_number address city legacy_id')
       .sort({ invoice_date: -1 })
       .lean();
 
@@ -79,7 +85,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const invoice = await Invoice.findOne({ legacy_id: numericId })
-      .populate('customer', 'name email phone address legacy_id')
+      .populate('customer', 'name email mobile_number address legacy_id')
       .populate('items.item', 'name sku legacy_id')
       .lean();
 
@@ -217,7 +223,7 @@ router.post(
         session.endSession();
       
         const populated = await Invoice.findById(invoice._id)
-          .populate('customer', 'name email phone address city legacy_id')
+          .populate('customer', 'name email mobile_number address city legacy_id')
           .populate('items.item', 'name sku legacy_id')
           .lean();
       
@@ -239,7 +245,7 @@ router.post(
       }
 
       const populated = await Invoice.findById(invoice._id)
-        .populate('customer', 'name email legacy_id')
+        .populate('customer', 'name mobile_number email legacy_id')
         .populate('items.item', 'name sku legacy_id')
         .lean();
 
@@ -254,6 +260,7 @@ router.post(
     }
   }
 );
+
 
 /* ---------------- UPDATE INVOICE ---------------- */
 router.put('/:id', async (req, res) => {
@@ -284,7 +291,7 @@ router.put('/:id', async (req, res) => {
       updates,
       { new: true }
     )
-      .populate('customer', 'name phone email legacy_id')
+      .populate('customer', 'name mobile_number email legacy_id')
       .lean();
 
     if (!invoice) {
@@ -320,3 +327,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
+
