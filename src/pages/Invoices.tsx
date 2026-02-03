@@ -102,10 +102,13 @@ export default function Invoices() {
 
   const [dueDate, setDueDate] = useState("");
 
+  // Search Invoice
+  const [searchTerm, setSearchTerm] = useState("");
+
 
   /* ------------------ ITEM HANDLERS ------------------ */
 
-console.log(invoices)
+  console.log(invoices)
   const handleAddItem = (itemId: string) => {
     const item = items.find((i: any) => i.id.toString() === itemId);
     if (!item) return;
@@ -257,6 +260,15 @@ console.log(invoices)
   }, [duplicateInvoiceToPrint]);
 
 
+  const filteredInvoices = searchTerm
+  ? invoices.filter((invoice: any) =>
+      invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.customer_phone?.includes(searchTerm) ||
+      invoice.id?.toString().includes(searchTerm)
+    )
+  : invoices;
+
 
 
 
@@ -314,7 +326,7 @@ console.log(invoices)
                     <CommandEmpty>No city found.</CommandEmpty>
 
                     <CommandGroup>
-                      {cities.map((city) => (
+                      {cities.map((city: string | null) => (
                         <CommandItem
                           key={city}
                           value={city}
@@ -500,7 +512,12 @@ console.log(invoices)
         <CardHeader>
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" />
-            <Input className="pl-9" placeholder="Search invoices..." />
+            <Input
+              className="pl-9"
+              placeholder="Search InvoicesId, CustomerName..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </CardHeader>
 
@@ -518,13 +535,13 @@ console.log(invoices)
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.map((inv: any) => (
+              {filteredInvoices.map((inv: any) => (
                 <TableRow key={inv.id}>
                   <TableCell>{inv.invoice_number}</TableCell>
                   <TableCell>{inv.customer_name}</TableCell>
                   <TableCell>{inv.invoice_date}</TableCell>
                   <TableCell>{inv.item_count}</TableCell>
-                  <TableCell>{(inv.total_weight / 1000).toFixed(2)} kg</TableCell>
+                  <TableCell>{(inv.total_weight / 1000).toFixed(1)} kg</TableCell>
                   <TableCell>₹{inv.total_amount}</TableCell>
                   <TableCell className="text-right space-x-2">
 
