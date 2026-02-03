@@ -4,6 +4,7 @@ type InvoiceItem = {
     id: number;
     name: string;
     quantity: number;
+    weight: number;
     temp_rate: number;
 };
 
@@ -15,6 +16,7 @@ type OriginalTemplateProps = {
         customer_city?: string;
         customer_phone?: string;
         items: InvoiceItem[];
+        total_weight: number;
         total_amount: number;
     };
 };
@@ -85,7 +87,13 @@ const styles: Record<string, CSSProperties> = {
         marginBottom: "6px",
     },
     cell: {
-        border: "1px solid black"
+        border: "1px solid black",
+        textAlign: "center",
+    },
+    cell_total: {
+        borderTop: "1px solid black",
+        textAlign: "center",
+        padding: "3px"
     },
     table_text: {
         textAlign: "center"
@@ -109,6 +117,7 @@ const styles: Record<string, CSSProperties> = {
 
 const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
     ({ invoice }, ref) => {
+        // console.log(invoice.items)
         return (
             <div ref={ref} style={styles.invoice}>
                 <h2 style={styles.title}><strong>உ</strong></h2>
@@ -129,7 +138,7 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                         <p><strong>FSSAI:</strong> 5432109876543210</p>
                         <p><strong>HSN:</strong> 12345678</p>
                     </div>
-                    <img style={styles.image} alt="omm image" src="https://media.istockphoto.com/id/1462596965/vector/hindu-religion-om-symbol-with-vel-in-tamil-language.jpg?s=612x612&w=0&k=20&c=8alWUjyZQqwwxalI5ubFZPs4fsodyurCdS85vaqAl70=" />
+                    <img style={styles.image} alt="omm image" src="src\lib\omm.jpeg" />
                 </div>
                 <div style={styles.line}></div>
 
@@ -153,6 +162,7 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                             <th style={styles.cell}>S.No</th>
                             <th style={styles.cell}>Description of Items</th>
                             <th style={styles.cell}>Quantity</th>
+                            <th style={styles.cell}>Weight(Kg)</th>
                             <th style={styles.cell}>Rate per</th>
                             <th style={styles.cell}>Amount</th>
                         </tr>
@@ -163,16 +173,19 @@ const OriginalTemplate = forwardRef<HTMLDivElement, OriginalTemplateProps>(
                                 <td style={styles.table_text}>{index + 1}</td>
                                 <td style={styles.table_text}>{item.item_name ?? "-"}</td>
                                 <td style={styles.table_text}>{item.quantity ?? 0}</td>
+                                <td style={styles.table_text}>{(item.weight / 1000).toFixed(1)}</td>
                                 <td style={styles.table_text}>₹{item.unit_price ?? 0}</td>
                                 <td style={styles.table_text}>₹{item.total_price ?? 0}</td>
                             </tr>
                         ))}
-
                         <tr>
-                            <td colSpan={4} style={styles.cell}>
+                            <td colSpan={4} style={styles.cell_total}>
                                 <strong>Total</strong>
                             </td>
-                            <td style={styles.cell}>
+                            <td style={styles.cell_total}>
+                                <strong style={styles.table_text}>{(invoice?.total_weight / 1000).toFixed(1)}</strong>
+                            </td>
+                            <td style={styles.cell_total}>
                                 <strong>₹{invoice?.total_amount ?? 0}</strong>
                             </td>
                         </tr>

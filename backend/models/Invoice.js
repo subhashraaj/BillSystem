@@ -23,7 +23,11 @@ const invoiceItemSchema = new Schema(
       type: String,
       trim: true,
     },
-
+    weight: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     quantity: {
       type: Number,
       required: true,
@@ -82,6 +86,11 @@ const invoiceSchema = new Schema(
     total_amount: {
       type: Number,
       default: 0,
+      min: 0,
+    },
+    total_weight: {
+      type: Number,
+      required: true,
       min: 0,
     },
     status: {

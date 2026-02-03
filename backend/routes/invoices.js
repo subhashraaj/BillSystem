@@ -34,6 +34,7 @@ const formatInvoice = (invoice) => {
       : null,
 
     subtotal: invoice.subtotal,
+    total_weight: invoice.total_weight,
     tax_amount: invoice.tax_amount,
     total_amount: invoice.total_amount,
     status: invoice.status,
@@ -47,6 +48,7 @@ const formatInvoice = (invoice) => {
         item_name: item.item_name,
         sku: item.sku,
         quantity: item.quantity,
+        weight: item.weight,
         unit_price: item.unit_price, // invoice rate
         total_price: item.total_price,
       }))
@@ -62,7 +64,7 @@ const formatInvoice = (invoice) => {
 
 /* ---------------- GET ALL INVOICES ---------------- */
 router.get('/', async (_req, res) => {
-  
+
   try {
     const invoices = await Invoice.find()
       .populate('customer', 'name email mobile_number address city legacy_id')
@@ -86,7 +88,7 @@ router.get('/:id', async (req, res) => {
 
     const invoice = await Invoice.findOne({ legacy_id: numericId })
       .populate('customer', 'name email mobile_number address legacy_id')
-      .populate('items.item', 'name sku legacy_id')
+      .populate('items.item', 'name weight sku legacy_id')
       .lean();
 
     if (!invoice) {
@@ -106,16 +108,9 @@ router.post(
   [
     body('customer_id').isInt({ min: 1 }),
     body('invoice_date').isISO8601(),
-    body('due_date').optional().isISO8601(),
-
     body('items').isArray({ min: 1 }),
     body('items.*.item_id').isInt({ min: 1 }),
     body('items.*.quantity').isInt({ min: 1 }),
-    body('items.*.temp_rate')
-      .optional()
-      .isDecimal({ decimal_digits: '0,2' }),
-
-    body('tax_rate').optional().isDecimal({ decimal_digits: '0,2' }),
   ],
   async (req, res) => {
     try {
@@ -124,54 +119,44 @@ router.post(
         return res.status(400).json({ success: false, errors: errors.array() });
       }
 
-      const {
-        customer_id,
-        invoice_date,
-        due_date,
-        items,
-        tax_rate = 0,
-        notes,
-      } = req.body;
+      const { customer_id, invoice_date, due_date, items, tax_rate = 0, notes } = req.body;
 
-      /* -------- Validate customer -------- */
+      /* -------- Customer -------- */
       const customer = await Customer.findOne({ legacy_id: Number(customer_id) });
       if (!customer) {
         return res.status(400).json({ success: false, error: 'Customer not found' });
       }
 
-      /* -------- Fetch items -------- */
-      const itemIds = items.map((i) => Number(i.item_id));
+      /* -------- Fetch Items -------- */
+      const itemIds = items.map(i => Number(i.item_id));
       const itemDocs = await Item.find({ legacy_id: { $in: itemIds } });
 
       if (itemDocs.length !== itemIds.length) {
         return res.status(400).json({ success: false, error: 'One or more items not found' });
       }
 
-      const itemMap = new Map(itemDocs.map((doc) => [doc.legacy_id, doc]));
+      const itemMap = new Map(itemDocs.map(doc => [doc.legacy_id, doc]));
 
-      /* -------- Process invoice items -------- */
+      /* -------- Calculate -------- */
       let subtotal = 0;
+      let totalWeight = 0;
       const processedItems = [];
 
       for (const i of items) {
         const itemDoc = itemMap.get(Number(i.item_id));
         const quantity = Number(i.quantity);
 
-        // ✅ TEMP RATE LOGIC
         const unitPrice =
           i.temp_rate !== undefined && i.temp_rate !== null
             ? Number(i.temp_rate)
             : Number(itemDoc.price);
 
-        if (unitPrice <= 0) {
-          return res.status(400).json({
-            success: false,
-            error: `Invalid rate for item ${itemDoc.name}`,
-          });
-        }
-
         const totalPrice = unitPrice * quantity;
         subtotal += totalPrice;
+
+        const unitGram = Number(itemDoc.gram || 0);
+        const itemWeight = unitGram * quantity;
+        totalWeight += itemWeight;
 
         processedItems.push({
           item: itemDoc._id,
@@ -179,19 +164,20 @@ router.post(
           item_name: itemDoc.name,
           sku: itemDoc.sku,
           quantity,
-          unit_price: unitPrice, // invoice-specific rate
+          unit_price: unitPrice,
+          weight: itemWeight,
           total_price: totalPrice,
         });
       }
 
-      /* -------- Tax & totals -------- */
       const taxAmount = subtotal * (Number(tax_rate) / 100);
       const totalAmount = subtotal + taxAmount;
 
-      /* -------- Invoice numbering -------- */
+      /* -------- Invoice Number -------- */
       const legacyId = await getNextSequence('invoices');
       const invoiceNumber = `ARR-${String(legacyId).padStart(4, '0')}`;
 
+      /* -------- Transaction -------- */
       const session = await mongoose.startSession();
       session.startTransaction();
 
@@ -206,8 +192,8 @@ router.post(
             subtotal,
             tax_amount: taxAmount,
             total_amount: totalAmount,
+            total_weight: totalWeight,
             notes,
-            status: 'Draft',
             items: processedItems,
           }],
           { session }
@@ -218,48 +204,32 @@ router.post(
           { $inc: { balance: totalAmount } },
           { session }
         );
-      
+
         await session.commitTransaction();
         session.endSession();
-      
+
         const populated = await Invoice.findById(invoice._id)
           .populate('customer', 'name email mobile_number address city legacy_id')
-          .populate('items.item', 'name sku legacy_id')
           .lean();
-      
+
         return res.status(201).json({
           success: true,
-          message: 'Invoice created successfully',
           data: formatInvoice(populated),
         });
-      
+
       } catch (error) {
         await session.abortTransaction();
         session.endSession();
-      
-        console.error('Error creating invoice:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to create invoice',
-        });
+        throw error;
       }
 
-      const populated = await Invoice.findById(invoice._id)
-        .populate('customer', 'name mobile_number email legacy_id')
-        .populate('items.item', 'name sku legacy_id')
-        .lean();
-
-      res.status(201).json({
-        success: true,
-        message: 'Invoice created successfully',
-        data: formatInvoice(populated),
-      });
     } catch (error) {
       console.error('Error creating invoice:', error);
-      res.status(500).json({ success: false, error: 'Failed to create invoice' });
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 );
+
 
 
 /* ---------------- UPDATE INVOICE ---------------- */

@@ -62,6 +62,7 @@ type SelectedItem = {
   price: number;     // permanent price
   temp_rate: number; // temporary invoice rate
   quantity: number;
+  weight: number
 };
 
 export default function Invoices() {
@@ -104,7 +105,7 @@ export default function Invoices() {
 
   /* ------------------ ITEM HANDLERS ------------------ */
 
-
+console.log(invoices)
   const handleAddItem = (itemId: string) => {
     const item = items.find((i: any) => i.id.toString() === itemId);
     if (!item) return;
@@ -119,6 +120,7 @@ export default function Invoices() {
           price: item.price ?? 0,
           temp_rate: item.price ?? 0,
           quantity: 1,
+          weight: item.gram ?? 0,
         },
       ];
     });
@@ -167,6 +169,10 @@ export default function Invoices() {
   const taxRate = 0;
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
+  const totalWeight = selectedItems.reduce(
+    (sum, item) => sum + item.weight * item.quantity,
+    0
+  );
 
   /* ------------------ CREATE INVOICE ------------------ */
 
@@ -181,13 +187,15 @@ export default function Invoices() {
       items: selectedItems.map((item) => ({
         item_id: item.id,
         quantity: item.quantity,
+        gram: item.weight ?? 0,
         temp_rate: item.temp_rate,
+        weight: item.weight * item.quantity,
       })),
     };
 
 
     await createInvoice(payload);
-    // console.log(payload)
+    console.log(payload)
     setIsCreateInvoiceOpen(false);
     setSelectedCustomer(null);
     setSelectedItems([]);
@@ -226,7 +234,7 @@ export default function Invoices() {
 
   // Trigger print automatically when invoiceToPrint changes
   useEffect(() => {
-    // console.log(invoiceToPrint)
+    console.log(invoiceToPrint)
     if (invoiceToPrint) {
       handlePrint();
     }
@@ -504,6 +512,7 @@ export default function Invoices() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Items</TableHead>
+                <TableHead>Weight</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -515,6 +524,7 @@ export default function Invoices() {
                   <TableCell>{inv.customer_name}</TableCell>
                   <TableCell>{inv.invoice_date}</TableCell>
                   <TableCell>{inv.item_count}</TableCell>
+                  <TableCell>{(inv.total_weight / 1000).toFixed(2)} kg</TableCell>
                   <TableCell>₹{inv.total_amount}</TableCell>
                   <TableCell className="text-right space-x-2">
 
