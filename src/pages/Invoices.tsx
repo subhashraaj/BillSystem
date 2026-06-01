@@ -49,7 +49,6 @@ import DuplicateTemplate from "@/components/functionality/print/dulicate";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-
 import { useInvoices, useCreateInvoice, useCustomers, useItems, useInvoiceById } from "@/hooks/useAPI";
 import InvoiceDeletePopUp from "@/components/popUp/InvoiceDeletePopUp";
 import { InvoiceViewDialog } from "@/components/forms/InvoiceViewDialog";
@@ -99,6 +98,7 @@ export default function Invoices() {
   const [invoiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [invoiceToPrint, setInvoiceToPrint] = useState<any>(null);
   const [duplicateInvoiceToPrint, setDuplicateInvoiceToPrint] = useState<any>(null)
+  const [isOpen, setIsOpen] = useState(false);
 
   const [dueDate, setDueDate] = useState("");
 
@@ -108,7 +108,7 @@ export default function Invoices() {
 
   /* ------------------ ITEM HANDLERS ------------------ */
 
-  console.log(invoices)
+  // console.log(invoices)
   const handleAddItem = (itemId: string) => {
     const item = items.find((i: any) => i.id.toString() === itemId);
     if (!item) return;
@@ -237,7 +237,7 @@ export default function Invoices() {
 
   // Trigger print automatically when invoiceToPrint changes
   useEffect(() => {
-    console.log(invoiceToPrint)
+    // console.log(invoiceToPrint)
     if (invoiceToPrint) {
       handlePrint();
     }
@@ -261,17 +261,13 @@ export default function Invoices() {
 
 
   const filteredInvoices = searchTerm
-  ? invoices.filter((invoice: any) =>
+    ? invoices.filter((invoice: any) =>
       invoice.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.customer_phone?.includes(searchTerm) ||
       invoice.id?.toString().includes(searchTerm)
     )
-  : invoices;
-
-
-
-
+    : invoices;
 
   // console.log(selectedCustomer)
 
@@ -536,7 +532,7 @@ export default function Invoices() {
             </TableHeader>
             <TableBody>
               {filteredInvoices.map((inv: any) => (
-                <TableRow key={inv.id}>
+                <TableRow>
                   <TableCell>{inv.invoice_number}</TableCell>
                   <TableCell>{inv.customer_name}</TableCell>
                   <TableCell>{inv.invoice_date}</TableCell>

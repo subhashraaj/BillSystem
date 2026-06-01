@@ -1,33 +1,24 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { LucideIcon } from "lucide-react";
+import React from "react";
 
-interface MetricCardProps {
-  title: string;
-  value: string;
-  icon: LucideIcon;
-  trend?: string;
-  trendUp?: boolean;
-}
-
-export function MetricCard({ title, value, icon: Icon, trend, trendUp }: MetricCardProps) {
-  return (
-    <Card className="shadow-card hover:shadow-hover transition-shadow">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
-            {trend && (
-              <p className={`text-xs mt-1 ${trendUp ? 'text-accent' : 'text-destructive'}`}>
-                {trend}
-              </p>
-            )}
-          </div>
-          <div className="p-3 bg-primary/10 rounded-lg">
-            <Icon className="h-6 w-6 text-primary" />
-          </div>
+export const MetricCard = React.memo(
+  ({ title, value, icon: Icon, trend, trendUp }: any) => {
+    return (
+      <div className="p-4 bg-card rounded-2xl shadow-card">
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <Icon className="h-5 w-5 text-muted-foreground" />
         </div>
-      </CardContent>
-    </Card>
-  );
-}
+
+        <h2 className="text-2xl font-bold mt-2">{value}</h2>
+
+        <p
+          className={`text-xs mt-1 ${
+            trendUp ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {trend}
+        </p>
+      </div>
+    );
+  }
+);
