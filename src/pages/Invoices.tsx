@@ -198,7 +198,7 @@ export default function Invoices() {
 
 
     await createInvoice(payload);
-    console.log(payload)
+    // console.log(payload)
     setIsCreateInvoiceOpen(false);
     setSelectedCustomer(null);
     setSelectedItems([]);
@@ -532,7 +532,9 @@ export default function Invoices() {
             </TableHeader>
             <TableBody>
               {filteredInvoices.map((inv: any) => (
-                <TableRow>
+                <TableRow 
+                  key={inv.invoice_number}
+                  onClick={() => InvoiceCardHandler(inv)}>
                   <TableCell>{inv.invoice_number}</TableCell>
                   <TableCell>{inv.customer_name}</TableCell>
                   <TableCell>{inv.invoice_date}</TableCell>
